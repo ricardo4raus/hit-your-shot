@@ -14,15 +14,86 @@
  *   lower than the foam ball at level 0, zero when the ball id is unknown.
  *
  * May import: ./types, ./balance, ./state, ./rng, ./ballistics, ./limbs, ./upgrades, ./round, ./trophies.
+ *
+ * Implementation notes (decisions where the rules above were open):
+ * - The shot inputs come from round.shotInputFor itself, called with a throwaway RoundState (phase 0, not doubled) and, when a ball id is
+ *   given, a copy of the state with that ball on every limb. The estimate therefore follows every rule of the live round for free.
+ * - Sample k of `samples` fires at round time k × roundSeconds / samples, so the first sample is at 0 and the moving target is seen at
+ *   evenly spaced phases of its motion. The aim is solved per limb from the limb's ball speed and is not corrected for the limb's
+ *   perpendicular offset: the player aims one line for all limbs, so the estimate does too.
+ * - One rng (createRng(seed)) serves every sample of every limb in order, so the result depends only on the inputs.
+ * - A non-positive or non-finite sample count falls back to the default; a sport with zero limbs estimates 0.
  */
 import type { Balance } from './balance';
-import type { BallId, GameState, SportId } from './types';
+import { ballDefOf } from './balance';
+import { resolveShot, solveAim, targetPose, type Arc } from './ballistics';
+import { createRng } from './rng';
+import { withSport } from './state';
+import { hitValue, shotInputFor } from './round';
+import type { BallId, GameState, RoundState, SportId } from './types';
+import { shotsPerSec } from './upgrades';
 
 export interface EstimateOptions {
   samples?: number;
   seed?: number;
 }
 
-export function incomePerRoundEstimate(_state: GameState, _balance: Balance, _sportId: SportId, _ballId: BallId | null, _opts: EstimateOptions = {}): number {
-  throw new Error('not implemented');
+const DEFAULT_SAMPLES = 24;
+const DEFAULT_SEED = 7;
+const FALLBACK_AIM = Math.PI / 4;
+
+export function incomePerRoundEstimate(state: GameState, balance: Balance, sportId: SportId, ballId: BallId | null, opts: EstimateOptions = {}): number {
+  const samples = opts.samples !== undefined && Number.isFinite(opts.samples) && opts.samples > 0 ? Math.floor(opts.samples) : DEFAULT_SAMPLES;
+  const seed = opts.seed ?? DEFAULT_SEED;
+  const def = balance.sports[sportId];
+  const original = state.sports[sportId];
+  if (original.limbs <= 0) return 0;
+
+  // With a ball id, estimate as if every limb used it. The whole state is kept so the mastery bonus still applies.
+  let estimated = state;
+  if (ballId !== null) {
+    if (!ballDefOf(balance, sportId, ballId)) return 0;
+    const limbBalls: BallId[] = new Array(original.limbs).fill(ballId);
+    estimated = withSport(state, sportId, { ...original, limbBalls });
+  }
+  const sport = estimated.sports[sportId];
+
+  const round: RoundState = {
+    sport: sportId,
+    startedAt: 0,
+    seconds: balance.roundSeconds,
+    targetPhase: 0,
+    nextFireAt: [],
+    shots: 0,
+    hits: 0,
+    money: 0,
+    doubled: false,
+    finished: false,
+  };
+
+  // The target's mean position: phase 0 at t = 0 puts every motion at its center.
+  const pose = targetPose(def, 0, 0);
+  const arc: Arc = def.target.kind === 'hoop' ? 'high' : 'low';
+  const dx = pose.center.x - def.field.origin.x;
+  const dy = pose.center.y - def.field.origin.y;
+  const gravity = balance.physics.gravity;
+
+  const rng = createRng(seed);
+  let total = 0;
+  for (let limb = 0; limb < sport.limbs; limb++) {
+    const ball = ballDefOf(balance, sportId, sport.limbBalls[limb] ?? '') ?? def.balls[0];
+    if (ball === undefined) continue;
+    const aim = solveAim(ball.launchSpeed, gravity, dx, dy, arc) ?? FALLBACK_AIM;
+
+    let hits = 0;
+    for (let k = 0; k < samples; k++) {
+      const t = (k * balance.roundSeconds) / samples;
+      const input = shotInputFor(estimated, balance, round, limb, aim, t);
+      if (resolveShot(input, rng, balance).hit) hits++;
+    }
+
+    const shotsPerRound = shotsPerSec(balance, sport.upgrades.fireRate, ball) * balance.roundSeconds;
+    total += (hits / samples) * shotsPerRound * hitValue(estimated, balance, sportId, ball, false);
+  }
+  return Math.round(total);
 }
