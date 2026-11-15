@@ -2,7 +2,7 @@
 
 Mobile sports shooter with idle/upgrade progression: aim a shooting line, shoot balls at a hole, basket or goal in short timed rounds, earn money per hit, upgrade accuracy, fire rate and income. Unlock more sports, heavier balls and characters with more arms. **iPhone first, then Android.** Built on Windows without a Mac: Expo Go on the phone, cloud builds with EAS.
 
-Status: idea approved, design and repository setup done, no game code yet.
+Status: engine, store, play field and panels built and tested; not yet run on a phone. See `docs/STATUS.md`.
 
 ## Key files
 
@@ -12,6 +12,9 @@ Status: idea approved, design and repository setup done, no game code yet.
 - `docs/open-decisions.md`: one proposal per open item in Part 2, with reasons and cost. The owner decides; nothing there is built before that.
 - `docs/shared-code.md`: what can be reused from `../neural-tycoon` and how shared code for all apps should work.
 - `docs/decisions.md`: owner decisions with dates and reasons. Add a row for every new decision.
+- `docs/STATUS.md`: where the project stands and what comes next. Update it when something lands.
+- `docs/architecture.md`: layers, contracts, shot resolution, the live round, agent workflow. Read before writing code.
+- `docs/pacing-report.md`: output of `npm run simulate`. Regenerate after any balance change.
 - `docs/dev-notes.md`: branches, PRs, CI, commit identity, where files go.
 
 ## Rules
@@ -22,5 +25,6 @@ Status: idea approved, design and repository setup done, no game code yet.
 - No direct commits to `main`. Branch, pull request, green CI, merge commit. Small commits. Details in `docs/dev-notes.md`.
 - No personal data in this repository: no real names, e-mail addresses, phone numbers or user-profile paths, in files or commit metadata. Commit with the GitHub `noreply` address. CI scans for this.
 - Follow the portfolio layout in `../README.md` (docs/, balance/, tools/, src/). Shared code goes in `../_shared/` later; never change `../neural-tycoon` without the owner's permission.
-- When code starts: every game number lives in `balance/balance.json`; the engine is pure TypeScript with time and randomness passed in; a pacing simulator runs before any balance change is merged. Same pattern as `neural-tycoon`.
+- Every game number lives in `balance/balance.json` and is read through `src/engine/balance.ts`. The engine (`src/engine/`) is pure TypeScript: no React, no `Date.now()`, no `Math.random()`. After any balance change run `npm run simulate` and `npm test` (the pacing test judges the early targets).
+- Contract files change only through the lead: `src/engine/types.ts`, `balance.ts`, `state.ts`, `rng.ts`, `num.ts`, `testing.ts`, `index.ts`; `src/store/*`, `src/services/*`, `src/app/_layout.tsx`, `app.json`, `package.json`, `balance/balance.json`.
 - Research current docs before adding a library (Expo changes every SDK). Prefer the simplest standard thing.
