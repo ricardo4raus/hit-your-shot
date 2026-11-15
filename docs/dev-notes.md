@@ -51,7 +51,7 @@ npx --yes markdownlint-cli2@0.17.2 "**/*.md" "#node_modules"   # the same lint C
 
 ## Where things go
 
-```
+```text
 hit-your-shot/
   CLAUDE.md        rules and context for AI assistants (short; points at docs)
   docs/            game design, analysis, decisions, design rules, dev notes
