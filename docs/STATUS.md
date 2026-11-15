@@ -12,7 +12,7 @@ Where the project stands and what comes next. Updated 2026-11-15.
 
 ## Not yet done
 
-- **Never run on a phone.** The next step is `npx expo start` and Expo Go on the owner's iPhone. Expect first-run bugs in the play field and the panels.
+- First phone test done 2026-11-15: aiming and shooting work; the balls were invisible (fixed: Atlas replaced by a path of circles). Second test pending.
 - Sound: `services.audio` is silent. Needs CC0 sounds per design rules section 11.
 - Icon, splash and store assets: template placeholders.
 - Character face expressions, limb fold-in on arrival, new-ball roll-in: not animated yet (design rules section 8 and 9).

@@ -41,3 +41,14 @@ Owner decisions and the reasons, newest first. When an item is decided it also m
 | The income estimate aims each sample where the target will be (tracking) and uses 64 samples. | With a fixed aim at the mean position, the estimate credited misses to the target motion instead of the spread; with 24 samples it was ±50% at low hit rates. |
 | Upgrade effects per level: accuracy ×0.8 spread, fire rate +8%, income +15%; costs 12 × 1.25 to 1.3^level; characters 15000 × 5.5^(n−2); balls 0 / 500 / 6000; Trophies every 5 levels; football at 19 Trophies, golf at 45. | First simulator pass against the pacing targets in `docs/analysis.md`. See `docs/pacing-report.md`. |
 | The greedy bot's quiet-stretch target is reported but not asserted in CI. | The bot saves every coin for the next limb; a player buys small things meanwhile. |
+
+## 2026-11-15, first phone test (owner)
+
+| Decision | Reason / note |
+|---|---|
+| **Buying only between rounds.** Upgrade, ball and character purchases are refused while a round plays; the buttons are disabled. | Owner: "each round it shoots the balls, and when the round ends I upgrade". |
+| **No drop shadow on interface elements.** Every outline the same width on every side. Press feedback is a small scale. | Owner: the hard shadow under buttons read as a thicker bottom line. |
+| Settings button in the top right corner, not centered. | Bug in the first top bar layout. |
+| Art sources: code and hand SVG first, CC0 packs (Kenney) for props, AI tools (Recraft, Firefly) only for concepts and always redrawn. | Owner asked where models and ball designs come from. See `docs/design-rules.md` section 15. |
+
+Bug found on the phone: balls were invisible. The ball layer used a Skia `Atlas` fed from an offscreen sprite surface, which did not render in Expo Go on iOS. Replaced by one path of circles rebuilt on the UI thread per frame (ink stroke under the fill), with plain arrays crossing to the UI thread.

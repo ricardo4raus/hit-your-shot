@@ -3,7 +3,7 @@
  * every ball in flight. Ball positions are computed on the UI thread from the segments the engine produced (docs/architecture.md,
  * "The round, live"); React never re-renders per frame. Drag anywhere to aim; the first drag starts a round.
  */
-import { Atlas, Canvas, Circle, Group, Line, Path, Rect, Skia, useClock, useRectBuffer, useRSXformBuffer, vec, type SkImage } from '@shopify/react-native-skia';
+import { Canvas, Circle, Group, Line, Path, Rect, Skia, useClock, vec } from '@shopify/react-native-skia';
 import { useEffect, useMemo } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -17,40 +17,17 @@ import { border, colors, sportColors } from '@/ui/theme';
 /** A ball on the UI thread: flat segment numbers [t0, t1, x, y, vx, vy, gy] × n, plus when it stops being drawn. */
 interface BallRec {
   startMs: number;
-  seg: Float64Array;
+  seg: number[];
   end: number;
   r: number;
 }
 
-const SPRITE = 64;
 const SEG = 7;
-/** Packed batch layout per shot: [end, r, segmentCount, then segmentCount × SEG numbers]. One typed array crosses to the UI thread per tick. */
+/** Packed batch layout per shot: [end, r, segmentCount, then segmentCount × SEG numbers]. One flat array crosses to the UI thread per tick. */
 const HEAD = 3;
 const MAX_BALLS = balance.physics.maxBallsInFlight;
 const AIM_MIN = -0.35;
 const AIM_MAX = 1.95;
-
-function makeBallSprite(fill: string): SkImage | null {
-  const surface = Skia.Surface.MakeOffscreen(SPRITE, SPRITE);
-  if (!surface) return null;
-  const canvas = surface.getCanvas();
-  const c = SPRITE / 2;
-  const ink = Skia.Paint();
-  ink.setColor(Skia.Color(colors.ink));
-  canvas.drawCircle(c, c, c, ink);
-  const body = Skia.Paint();
-  body.setColor(Skia.Color(fill));
-  canvas.drawCircle(c, c, c - 5, body);
-  // Two-tone split: a lighter top half, the only volume cue the design rules allow on round things.
-  const light = Skia.Paint();
-  light.setColor(Skia.Color('rgba(255,255,255,0.22)'));
-  const top = Skia.PathBuilder.Make();
-  top.addArc({ x: 5, y: 5, width: SPRITE - 10, height: SPRITE - 10 }, 180, 180);
-  top.close();
-  canvas.drawPath(top.detach(), light);
-  surface.flush();
-  return surface.makeImageSnapshot();
-}
 
 export interface PlayFieldProps {
   height: number;
@@ -83,8 +60,6 @@ export function PlayField({ height }: PlayFieldProps) {
   const offsets = useMemo(() => muzzleOffsets(limbs, def, balance), [limbs, def]);
   const anchors = useMemo(() => limbAnchors(limbs, def.limb), [limbs, def.limb]);
 
-  const sprite = useMemo(() => makeBallSprite(palette.ball), [palette.ball]);
-
   // Shared values the UI thread reads every frame.
   const clock = useClock();
   const balls = useSharedValue<BallRec[]>([]);
@@ -115,7 +90,7 @@ export function PlayField({ height }: PlayFieldProps) {
       const startMs = useGame.getState().round?.startedAt ?? Date.now();
       let size = 0;
       for (const s of batch) size += HEAD + s.segments.length * SEG;
-      const packed = new Float64Array(size);
+      const packed: number[] = new Array(size);
       let o = 0;
       for (const s of batch) {
         packed[o++] = s.endSec;
@@ -146,7 +121,7 @@ export function PlayField({ height }: PlayFieldProps) {
           const end = packed[p]!;
           const r = packed[p + 1]!;
           const n = packed[p + 2]!;
-          const seg = packed.subarray(p + HEAD, p + HEAD + n * SEG);
+          const seg = packed.slice(p + HEAD, p + HEAD + n * SEG);
           list.push({ startMs, seg, end, r });
           p += HEAD + n * SEG;
         }
@@ -156,45 +131,33 @@ export function PlayField({ height }: PlayFieldProps) {
     });
   }, [balls]);
 
-  // One sprite rectangle for every slot; the transforms place and scale it.
-  const sprites = useRectBuffer(MAX_BALLS, (val) => {
-    'worklet';
-    val.setXYWH(0, 0, SPRITE, SPRITE);
-  });
-
-  const transforms = useRSXformBuffer(MAX_BALLS, (val, i) => {
-    'worklet';
-    // The clock in this closure makes the buffer re-run every frame; wall time keeps the playback on the engine's time base.
+  // Every ball in flight as one path of circles, rebuilt on the UI thread each frame from the engine's segments. The clock in the
+  // closure makes it run every frame; wall time keeps the playback on the engine's time base. Drawn twice: ink stroke, then fill.
+  const ballsPath = useDerivedValue(() => {
     clock.value;
     const nowMs = Date.now();
     const list = balls.value;
-    if (i >= list.length) {
-      val.set(0, 0, -SPRITE, -SPRITE);
-      return;
-    }
-    const b = list[i]!;
-    const t = (nowMs - b.startMs) / 1000;
-    const seg = b.seg;
-    const n = seg.length / SEG;
-    if (n === 0 || t < seg[0]! || t >= b.end) {
-      val.set(0, 0, -SPRITE, -SPRITE);
-      return;
-    }
-    let k = n - 1;
-    for (let j = 0; j < n; j++) {
-      if (t < seg[j * SEG + 1]!) {
-        k = j;
-        break;
+    const path = Skia.PathBuilder.Make();
+    for (let i = 0; i < list.length; i++) {
+      const b = list[i]!;
+      const t = (nowMs - b.startMs) / 1000;
+      const seg = b.seg;
+      const n = seg.length / SEG;
+      if (n === 0 || t < seg[0]! || t >= b.end) continue;
+      let k = n - 1;
+      for (let j = 0; j < n; j++) {
+        if (t < seg[j * SEG + 1]!) {
+          k = j;
+          break;
+        }
       }
+      const o = k * SEG;
+      const dt = Math.min(t, seg[o + 1]!) - seg[o]!;
+      const x = seg[o + 2]! + seg[o + 4]! * dt;
+      const y = seg[o + 3]! + seg[o + 5]! * dt + 0.5 * seg[o + 6]! * dt * dt;
+      path.addCircle(x * scale, floorY - y * scale, b.r * scale);
     }
-    const o = k * SEG;
-    const dt = Math.min(t, seg[o + 1]!) - seg[o]!;
-    const x = seg[o + 2]! + seg[o + 4]! * dt;
-    const y = seg[o + 3]! + seg[o + 5]! * dt + 0.5 * seg[o + 6]! * dt * dt;
-    const px = x * scale;
-    const py = floorY - y * scale;
-    const s = (2 * b.r * scale) / SPRITE;
-    val.set(s, 0, px - b.r * scale, py - b.r * scale);
+    return path.detach();
   });
 
   // Target motion, smooth on the UI thread and continuous across rounds: the store picks each round's phase so that the engine's
@@ -318,8 +281,9 @@ export function PlayField({ height }: PlayFieldProps) {
           <Path path={conePath} color={colors.ink} style="stroke" strokeWidth={1.5} opacity={0.35} />
           <Path path={aimPath} color={colors.accent} style="stroke" strokeWidth={4} strokeCap="round" />
 
-          {/* Balls */}
-          {sprite ? <Atlas image={sprite} sprites={sprites} transforms={transforms} /> : null}
+          {/* Balls: ink outline under the fill, same outline width as everything else */}
+          <Path path={ballsPath} color={colors.ink} style="stroke" strokeWidth={border.width * 2} />
+          <Path path={ballsPath} color={palette.ball} />
         </Canvas>
       </View>
     </GestureDetector>

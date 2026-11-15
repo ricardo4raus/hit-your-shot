@@ -56,6 +56,7 @@ interface UpgradeCardProps {
 }
 
 function UpgradeCard({ id }: UpgradeCardProps) {
+  const playing = useGame((s) => s.phase === 'playing');
   const level = useGame((s) => s.state.sports[s.state.currentSport].upgrades[id]);
   const money = useGame(selectMoney);
   const reduced = useReducedMotion();
@@ -104,7 +105,7 @@ function UpgradeCard({ id }: UpgradeCardProps) {
         title={maxed ? strings.upgrades.max : strings.upgrades.upgrade}
         subtitle={maxed ? undefined : formatMoney(cost)}
         color={colors.paper}
-        disabled={!affordable}
+        disabled={!affordable || playing}
         size="sm"
         onPress={buy}
         accessibilityLabel={maxed ? `${name}, ${strings.upgrades.max}` : `${strings.upgrades.upgrade} ${name}, ${formatMoney(cost)}`}
