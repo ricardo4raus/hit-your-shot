@@ -10,7 +10,8 @@ cd "$(git rev-parse --show-toplevel)"
 status=0
 
 # Every tracked text file. Binary files (images, fonts, sounds) are skipped by grep -I.
-files=$(git ls-files | grep -v -E '\.(png|jpg|jpeg|gif|ttf|otf|mp3|ogg|wav|ico)$' || true)
+# Third-party lock files carry package authors' addresses, which are not the owner's data.
+files=$(git ls-files | grep -v -E '\.(png|jpg|jpeg|gif|ttf|otf|mp3|ogg|wav|ico)$|(^|/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$' || true)
 
 if [ -z "$files" ]; then
   echo "no tracked files"
