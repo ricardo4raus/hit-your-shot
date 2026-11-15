@@ -15,7 +15,9 @@ import { ShopSheet } from '@/features/shop/ShopSheet';
 import { useGame } from '@/store/game';
 import { colors } from '@/ui/theme';
 
-const CARDS_HEIGHT = 230;
+/** The cards take the bottom 30% of the usable height (design rules section 6), never less than the cards need. */
+const CARDS_MIN_HEIGHT = 212;
+const CARDS_FRACTION = 0.3;
 
 export default function Home() {
   const { height } = useWindowDimensions();
@@ -29,7 +31,9 @@ export default function Home() {
 
   if (!ready) return <View style={styles.root} />;
 
-  const fieldHeight = Math.max(260, height - insets.top - insets.bottom - CARDS_HEIGHT);
+  const usable = height - insets.top - insets.bottom;
+  const cardsHeight = Math.max(CARDS_MIN_HEIGHT, Math.round(usable * CARDS_FRACTION));
+  const fieldHeight = Math.max(260, usable - cardsHeight);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -38,7 +42,7 @@ export default function Home() {
         <TopBar />
         <ResultPanel onOpenShop={() => setShopOpen(true)} />
       </View>
-      <View style={styles.cards}>
+      <View style={[styles.cards, { height: cardsHeight }]}>
         <UpgradeCards onOpenShop={() => setShopOpen(true)} />
       </View>
       <ShopSheet visible={shopOpen} onClose={() => setShopOpen(false)} />
@@ -49,5 +53,5 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.sky },
-  cards: { height: CARDS_HEIGHT, backgroundColor: colors.paper2, borderTopWidth: 3, borderTopColor: colors.ink },
+  cards: { backgroundColor: colors.paper2, borderTopWidth: 3, borderTopColor: colors.ink },
 });

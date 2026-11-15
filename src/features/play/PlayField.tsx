@@ -17,13 +17,15 @@ import { border, colors, sportColors } from '@/ui/theme';
 /** A ball on the UI thread: flat segment numbers [t0, t1, x, y, vx, vy, gy] × n, plus when it stops being drawn. */
 interface BallRec {
   startMs: number;
-  seg: number[];
+  seg: Float64Array;
   end: number;
   r: number;
 }
 
 const SPRITE = 64;
 const SEG = 7;
+/** Packed batch layout per shot: [end, r, segmentCount, then segmentCount × SEG numbers]. One typed array crosses to the UI thread per tick. */
+const HEAD = 3;
 const MAX_BALLS = balance.physics.maxBallsInFlight;
 const AIM_MIN = -0.35;
 const AIM_MAX = 1.95;
@@ -88,7 +90,6 @@ export function PlayField({ height }: PlayFieldProps) {
   const balls = useSharedValue<BallRec[]>([]);
   const aim = useSharedValue(Math.PI / 4);
   const spreadSV = useSharedValue(spread);
-  const roundStart = useSharedValue(0);
   const phase = useSharedValue(0);
   const offsetsSV = useSharedValue<number[]>(offsets);
 
@@ -99,7 +100,6 @@ export function PlayField({ height }: PlayFieldProps) {
     offsetsSV.value = offsets;
   }, [offsets, offsetsSV]);
   useEffect(() => {
-    roundStart.value = roundStartedAt;
     phase.value = roundPhase;
     if (!playing) return;
     balls.modify((list) => {
@@ -107,27 +107,31 @@ export function PlayField({ height }: PlayFieldProps) {
       list.length = 0;
       return list;
     });
-  }, [roundStartedAt, roundPhase, playing, roundStart, phase, balls]);
+  }, [roundStartedAt, roundPhase, playing, phase, balls]);
 
   // New shots arrive in batches once per store tick; they are appended on the UI thread and ended balls are dropped there.
   useEffect(() => {
     return onShots((batch: readonly ShotResult[]) => {
       const startMs = useGame.getState().round?.startedAt ?? Date.now();
-      const recs: BallRec[] = batch.map((s) => {
-        const seg: number[] = new Array(s.segments.length * SEG);
-        for (let i = 0; i < s.segments.length; i++) {
-          const g = s.segments[i]!;
-          const o = i * SEG;
-          seg[o] = g.t0;
-          seg[o + 1] = g.t1;
-          seg[o + 2] = g.x;
-          seg[o + 3] = g.y;
-          seg[o + 4] = g.vx;
-          seg[o + 5] = g.vy;
-          seg[o + 6] = g.gy;
+      let size = 0;
+      for (const s of batch) size += HEAD + s.segments.length * SEG;
+      const packed = new Float64Array(size);
+      let o = 0;
+      for (const s of batch) {
+        packed[o++] = s.endSec;
+        packed[o++] = s.radius;
+        packed[o++] = s.segments.length;
+        for (const g of s.segments) {
+          packed[o++] = g.t0;
+          packed[o++] = g.t1;
+          packed[o++] = g.x;
+          packed[o++] = g.y;
+          packed[o++] = g.vx;
+          packed[o++] = g.vy;
+          packed[o++] = g.gy;
         }
-        return { startMs, seg, end: s.endSec, r: s.radius };
-      });
+      }
+      const count = batch.length;
       balls.modify((list) => {
         'worklet';
         const now = Date.now();
@@ -137,7 +141,15 @@ export function PlayField({ height }: PlayFieldProps) {
           if ((now - b.startMs) / 1000 < b.end) list[w++] = b;
         }
         list.length = w;
-        for (let i = 0; i < recs.length; i++) list.push(recs[i]!);
+        let p = 0;
+        for (let i = 0; i < count; i++) {
+          const end = packed[p]!;
+          const r = packed[p + 1]!;
+          const n = packed[p + 2]!;
+          const seg = packed.subarray(p + HEAD, p + HEAD + n * SEG);
+          list.push({ startMs, seg, end, r });
+          p += HEAD + n * SEG;
+        }
         if (list.length > MAX_BALLS) list.splice(0, list.length - MAX_BALLS);
         return list;
       });
@@ -152,8 +164,9 @@ export function PlayField({ height }: PlayFieldProps) {
 
   const transforms = useRSXformBuffer(MAX_BALLS, (val, i) => {
     'worklet';
-    // Reading the clock makes this run every frame.
-    const nowMs = clock.value > 0 ? Date.now() : Date.now();
+    // The clock in this closure makes the buffer re-run every frame; wall time keeps the playback on the engine's time base.
+    clock.value;
+    const nowMs = Date.now();
     const list = balls.value;
     if (i >= list.length) {
       val.set(0, 0, -SPRITE, -SPRITE);
@@ -184,12 +197,15 @@ export function PlayField({ height }: PlayFieldProps) {
     val.set(s, 0, px - b.r * scale, py - b.r * scale);
   });
 
-  // Target position, smooth on the UI thread. Idle: keeps moving on the clock so the field is never static.
+  // Target motion, smooth on the UI thread and continuous across rounds: the store picks each round's phase so that the engine's
+  // sin(2π t / period + phase) equals this idle curve sin(2π wallSeconds / period) at the moment the round starts. A target that
+  // does not move during a round (golf) sits at the round's phase.
   const targetX = useDerivedValue(() => {
+    clock.value;
     const m = def.target.motion;
-    const t = roundStart.value > 0 ? (Date.now() - roundStart.value) / 1000 : clock.value / 1000;
     if (m.periodSec <= 0) return (def.target.center.x + m.amplitude * Math.sin(phase.value)) * scale;
-    return (def.target.center.x + m.amplitude * Math.sin((2 * Math.PI * t) / m.periodSec + phase.value)) * scale;
+    const wall = Date.now() / 1000;
+    return (def.target.center.x + m.amplitude * Math.sin((2 * Math.PI * wall) / m.periodSec)) * scale;
   });
   const targetTransform = useDerivedValue(() => [{ translateX: targetX.value }]);
 
@@ -278,24 +294,25 @@ export function PlayField({ height }: PlayFieldProps) {
           <Rect x={0} y={floorY} width={width} height={groundPx} color={palette.floor} />
           <Line p1={vec(0, floorY)} p2={vec(width, floorY)} color={colors.ink} strokeWidth={border.width} />
 
-          {/* Target */}
+          {/* Target: what moves is inside the translated group, the rest is static (football: the goal stays, the keeper drifts). */}
+          <TargetStatic sport={sportId} toY={toY} scale={scale} palette={palette} />
           <Group transform={targetTransform}>
-            <TargetView sport={sportId} toY={toY} scale={scale} palette={palette} />
+            <TargetMoving sport={sportId} toY={toY} scale={scale} palette={palette} />
           </Group>
 
           {/* Character: back limbs, body, front limbs */}
           <Path path={backLimbs} color={colors.ink} style="stroke" strokeWidth={limbStroke + 2 * border.width} strokeCap="round" />
-          <Path path={backLimbs} color="#C9A27A" style="stroke" strokeWidth={limbStroke} strokeCap="round" />
+          <Path path={backLimbs} color={colors.skinShade} style="stroke" strokeWidth={limbStroke} strokeCap="round" />
           <Rect x={bodyX - torsoW / 2} y={torsoTop} width={torsoW} height={torsoBottom - torsoTop} color={colors.ink} />
           <Rect x={bodyX - torsoW / 2 + border.width} y={torsoTop + border.width} width={torsoW - 2 * border.width} height={torsoBottom - torsoTop - 2 * border.width} color={colors.paper} />
           <Rect x={bodyX - torsoW / 2} y={torsoBottom} width={torsoW} height={bodyBase - torsoBottom} color={colors.ink} />
-          <Rect x={bodyX - torsoW / 2 + border.width} y={torsoBottom} width={torsoW - 2 * border.width} height={bodyBase - torsoBottom - border.width} color="#4A5E8A" />
+          <Rect x={bodyX - torsoW / 2 + border.width} y={torsoBottom} width={torsoW - 2 * border.width} height={bodyBase - torsoBottom - border.width} color={colors.trousers} />
           <Circle cx={bodyX} cy={torsoTop - headR} r={headR + border.width} color={colors.ink} />
-          <Circle cx={bodyX} cy={torsoTop - headR} r={headR} color="#E8B890" />
+          <Circle cx={bodyX} cy={torsoTop - headR} r={headR} color={colors.skin} />
           <Circle cx={bodyX + headR * 0.45} cy={torsoTop - headR * 1.1} r={Math.max(2, headR * 0.12)} color={colors.ink} />
           <Circle cx={bodyX + headR * 0.05} cy={torsoTop - headR * 1.1} r={Math.max(2, headR * 0.12)} color={colors.ink} />
           <Path path={frontLimbs} color={colors.ink} style="stroke" strokeWidth={limbStroke + 2 * border.width} strokeCap="round" />
-          <Path path={frontLimbs} color="#E8B890" style="stroke" strokeWidth={limbStroke} strokeCap="round" />
+          <Path path={frontLimbs} color={colors.skin} style="stroke" strokeWidth={limbStroke} strokeCap="round" />
 
           {/* Aim */}
           <Path path={conePath} color={colors.ink} style="stroke" strokeWidth={1.5} opacity={0.35} />
@@ -326,8 +343,24 @@ interface TargetViewProps {
   palette: { target: string };
 }
 
-/** Static drawing of the target around x = 0; the parent group translates it. */
-function TargetView({ sport, toY, scale, palette }: TargetViewProps) {
+/** The part of the target that does not move. Football: the goal frame at its fixed center. */
+function TargetStatic({ sport, toY, scale, palette }: TargetViewProps) {
+  const def = balance.sports[sport];
+  if (def.target.kind !== 'goal') return null;
+  const cx = def.target.center.x * scale;
+  const hw = def.target.halfWidth * scale;
+  const top = toY(def.target.center.y * 2);
+  const bottom = toY(0);
+  return (
+    <>
+      <Rect x={cx - hw - 4} y={top} width={hw * 2 + 8} height={bottom - top} color={colors.ink} />
+      <Rect x={cx - hw} y={top + 4} width={hw * 2} height={bottom - top - 4} color={palette.target} opacity={0.5} />
+    </>
+  );
+}
+
+/** The part of the target that moves, drawn around x = 0; the parent group translates it by the motion. */
+function TargetMoving({ sport, toY, scale, palette }: TargetViewProps) {
   const def = balance.sports[sport];
   const cy = toY(def.target.center.y);
   const hw = def.target.halfWidth * scale;
@@ -357,14 +390,11 @@ function TargetView({ sport, toY, scale, palette }: TargetViewProps) {
     );
   }
   if (def.target.kind === 'goal') {
-    const top = toY(def.target.center.y * 2);
-    const bottom = toY(0);
-    return (
-      <>
-        <Rect x={-hw - 4} y={top} width={hw * 2 + 8} height={bottom - top} color={colors.ink} />
-        <Rect x={-hw} y={top + 4} width={hw * 2} height={bottom - top - 4} color={palette.target} opacity={0.5} />
-      </>
-    );
+    // The keeper block around the goal's center x: a cone on a stick, as the design rules put it.
+    const kw = (def.target.keeperHalfWidth ?? 0.35) * scale;
+    const kh = (def.target.keeperHeight ?? 1.9) * scale;
+    const kx = def.target.center.x * scale;
+    return <Rect x={kx - kw} y={toY(0) - kh} width={kw * 2} height={kh} color={colors.ink} />;
   }
   return <Circle cx={0} cy={toY(0)} r={hw} color={colors.ink} />;
 }

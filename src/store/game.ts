@@ -17,7 +17,7 @@ import { pickLine, situationFor } from '@/content/commentary';
 import * as E from '@/engine';
 import type { Balance, BallId, GameState, Rng, RoundState, SportId, UpgradeId } from '@/engine';
 import { services } from '@/services';
-import { setHapticsGetter, tickHaptic } from '@/ui/feedback';
+import { heavyHaptic, mediumHaptic, setHapticsGetter, tickHaptic } from '@/ui/feedback';
 
 import { emitGameEvents } from './events';
 import { clearShots, flushShots, pushShot } from './shotBus';
@@ -46,6 +46,7 @@ export interface OfflineView {
 const TICK_MS = 1000 / 30;
 const SAVE_EVERY_MS = 5000;
 const HIT_HAPTIC_MIN_GAP_MS = 120;
+const TWO_PI = 2 * Math.PI;
 
 export interface GameActions {
   init(): void;
@@ -89,7 +90,9 @@ export interface GameStore {
   actions: GameActions;
 }
 
-let loop: ReturnType<typeof setInterval> | null = null;
+/** The 30 Hz round clock runs only while a round is playing; the slow loop saves while idle. */
+let fastLoop: ReturnType<typeof setInterval> | null = null;
+let slowLoop: ReturnType<typeof setInterval> | null = null;
 let appStateSub: { remove(): void } | null = null;
 let aim = Math.PI / 4;
 let roundRng: Rng = E.createRng(1);
@@ -132,6 +135,15 @@ export const useGame = create<GameStore>((set, get) => {
     lastSaveAt = now;
   }
 
+  /** After a successful upgrade, ball or character purchase: Trophy milestones, sound, immediate save. */
+  function afterPurchase(sound: 'buy' | 'footsteps'): void {
+    const awarded = E.awardMilestones(get().state, balance, get().state.currentSport);
+    set({ state: awarded.state });
+    emitGameEvents(awarded.events);
+    services.audio.play(sound);
+    saveNow(Date.now());
+  }
+
   function finishRound(round: RoundState): void {
     const before = get().state;
     const res = E.settleRound(before, balance, round);
@@ -140,16 +152,21 @@ export const useGame = create<GameStore>((set, get) => {
     const sport = res.state.sports[sportId];
     const newBest = res.events.some((e) => e.type === 'newBest');
     const ballOfLimb0 = E.ballDefOf(balance, sportId, sport.limbBalls[0] ?? '');
-    const heavy = ballOfLimb0 ? ballOfLimb0.accuracyPenaltyDeg >= 5 : false;
-    const situation = situationFor({
-      shots: round.shots,
-      hits: round.hits,
-      newBest,
-      limbs: sport.limbs,
-      limbKind: balance.sports[sportId].limb,
-      firstRoundWithLimbs: sport.limbs !== limbsAtLastRound && sport.limbs > 1,
-      heavyBall: heavy,
-    });
+    const heavy = ballOfLimb0 ? ballOfLimb0.accuracyPenaltyDeg >= balance.commentary.heavyBallPenaltyDeg : false;
+    const situation = situationFor(
+      {
+        shots: round.shots,
+        hits: round.hits,
+        newBest,
+        limbs: sport.limbs,
+        limbKind: balance.sports[sportId].limb,
+        firstRoundWithLimbs: sport.limbs !== limbsAtLastRound && sport.limbs > 1,
+        heavyBall: heavy,
+      },
+      balance.commentary.manyBallsShots,
+    );
+    if (newBest) mediumHaptic();
+    stopFastLoop();
     limbsAtLastRound = sport.limbs;
     const [roll, withRoll] = E.rollFromState(res.state);
     const line = pickLine(situation, usedLines, lastLine, () => roll);
@@ -168,10 +185,32 @@ export const useGame = create<GameStore>((set, get) => {
     saveNow(Date.now());
   }
 
+  function stopFastLoop(): void {
+    if (fastLoop) {
+      clearInterval(fastLoop);
+      fastLoop = null;
+    }
+  }
+
+  function startFastLoop(): void {
+    if (!fastLoop) fastLoop = setInterval(onTick, TICK_MS);
+  }
+
+  /** Ends a live round without pay: the player left, or the tick failed. */
+  function abandonRound(): void {
+    clearShots();
+    stopFastLoop();
+    set({ phase: 'idle', round: null, secondsLeft: 0, roundMoney: 0 });
+  }
+
   function onTick(): void {
     const { phase, round, state } = get();
+    if (phase !== 'playing' || !round || round.finished) {
+      stopFastLoop();
+      return;
+    }
     const now = Date.now();
-    if (phase === 'playing' && round && !round.finished) {
+    try {
       const t = (now - round.startedAt) / 1000;
       if (t >= round.seconds) {
         flushShots();
@@ -195,13 +234,25 @@ export const useGame = create<GameStore>((set, get) => {
       }
       flushShots();
       set({ round: r, secondsLeft: Math.max(0, round.seconds - t), roundMoney: r.money });
-    } else if (now - lastSaveAt > SAVE_EVERY_MS) {
-      saveNow(now);
+    } catch (err) {
+      // A failing tick must not red-box 30 times a second with the round stuck. The round is abandoned; the state is untouched.
+      console.warn('round tick failed, round abandoned', err);
+      abandonRound();
     }
+  }
+
+  function onSlowTick(): void {
+    const now = Date.now();
+    if (get().phase !== 'playing' && now - lastSaveAt > SAVE_EVERY_MS) saveNow(now);
   }
 
   function onAppState(next: AppStateStatus): void {
     const now = Date.now();
+    if (next === 'inactive') {
+      // Control Center, a notification banner, the app switcher: the round keeps running, only the save is refreshed.
+      saveNow(now);
+      return;
+    }
     if (next === 'active') {
       const res = E.applyOfflineEarnings(get().state, balance, now);
       if (res.ok) {
@@ -214,11 +265,7 @@ export const useGame = create<GameStore>((set, get) => {
       }
     } else {
       // Background: a live round is abandoned without pay (the player left), the clock is touched, the game saved.
-      const { phase, round } = get();
-      if (phase === 'playing' && round) {
-        clearShots();
-        set({ phase: 'idle', round: null, secondsLeft: 0, roundMoney: 0 });
-      }
+      if (get().phase === 'playing') abandonRound();
       saveNow(now);
     }
   }
@@ -249,22 +296,29 @@ export const useGame = create<GameStore>((set, get) => {
         setHapticsGetter(() => get().state.settings.haptics);
         services.audio.setEnabled(state.settings.sound);
         set({ state, ready: true, offline });
-        if (!loop) loop = setInterval(onTick, TICK_MS);
+        if (!slowLoop) slowLoop = setInterval(onSlowTick, SAVE_EVERY_MS);
         if (!appStateSub) appStateSub = AppState.addEventListener('change', onAppState);
         saveNow(now);
       },
 
       startRound() {
-        const { phase, state } = get();
-        if (phase === 'playing') return { ok: false, error: 'invalid' };
+        const { phase, state, busy, offline } = get();
+        if (phase === 'playing' || busy || offline) return { ok: false, error: 'invalid' };
         const now = Date.now();
         clearShots();
         const [seed, seeded] = E.rollFromState(state);
         roundRng = E.createRng(Math.floor(seed * 4294967296));
-        const round = E.createRound(seeded, balance, now, roundRng);
+        let round = E.createRound(seeded, balance, now, roundRng);
+        // A moving target keeps its phase continuous with the idle motion the play field shows, so nothing jumps when the round starts:
+        // the idle motion is sin(2π · wallSeconds / period), so the round's phase is that same angle at startedAt.
+        const motion = balance.sports[round.sport].target.motion;
+        if (motion.periodSec > 0) round = { ...round, targetPhase: ((TWO_PI * (now / 1000)) / motion.periodSec) % TWO_PI };
+        // The ×2 ad counts as used only now, when the round it pays for actually starts.
         const doubled = pendingDouble;
         pendingDouble = false;
-        set({ state: seeded, phase: 'playing', round: { ...round, doubled }, secondsLeft: round.seconds, roundMoney: 0, result: null });
+        const next = doubled ? E.markX2Used(seeded) : seeded;
+        set({ state: next, phase: 'playing', round: { ...round, doubled }, secondsLeft: round.seconds, roundMoney: 0, result: null });
+        startFastLoop();
         return { ok: true };
       },
 
@@ -278,42 +332,41 @@ export const useGame = create<GameStore>((set, get) => {
 
       buyUpgrade(id) {
         const status = apply(E.buyUpgrade(get().state, balance, id));
-        if (status.ok) {
-          const awarded = E.awardMilestones(get().state, balance, get().state.currentSport);
-          set({ state: awarded.state });
-          emitGameEvents(awarded.events);
-          services.audio.play('buy');
-        }
+        if (status.ok) afterPurchase('buy');
         return status;
       },
 
       buyBall(id) {
         const status = apply(E.buyBall(get().state, balance, id));
-        if (status.ok) {
-          const awarded = E.awardMilestones(get().state, balance, get().state.currentSport);
-          set({ state: awarded.state });
-          emitGameEvents(awarded.events);
-          services.audio.play('buy');
-        }
+        if (status.ok) afterPurchase('buy');
         return status;
       },
 
       assignLimbBall(limb, id) {
-        return apply(E.assignLimbBall(get().state, balance, limb, id));
+        const status = apply(E.assignLimbBall(get().state, balance, limb, id));
+        if (status.ok) saveNow(Date.now());
+        return status;
       },
 
       assignAllLimbs(id) {
-        return apply(E.assignAllLimbs(get().state, balance, id));
+        const status = apply(E.assignAllLimbs(get().state, balance, id));
+        if (status.ok) saveNow(Date.now());
+        return status;
       },
 
       buyCharacter() {
         const status = apply(E.buyCharacter(get().state, balance));
-        if (status.ok) services.audio.play('footsteps');
+        if (status.ok) {
+          heavyHaptic();
+          afterPurchase('footsteps');
+        }
         return status;
       },
 
       unlockSport(id) {
-        return apply(E.unlockSport(get().state, balance, id));
+        const status = apply(E.unlockSport(get().state, balance, id));
+        if (status.ok) saveNow(Date.now());
+        return status;
       },
 
       selectSport(id) {
@@ -321,7 +374,9 @@ export const useGame = create<GameStore>((set, get) => {
         const status = apply(E.selectSport(get().state, balance, id));
         if (status.ok) {
           limbsAtLastRound = get().state.sports[id].limbs;
+          pendingDouble = false;
           set({ phase: 'idle', result: null, round: null });
+          saveNow(Date.now());
         }
         return status;
       },
@@ -337,8 +392,8 @@ export const useGame = create<GameStore>((set, get) => {
             const result = await services.ads.showRewarded('x2_round');
             if (!result.rewarded) return { ok: false, error: 'not_available' };
           }
+          // Marked as used when the doubled round starts (startRound), so a kill before that does not burn the cooldown.
           pendingDouble = true;
-          set({ state: E.markX2Used(get().state) });
           emitGameEvents([{ type: 'x2Applied', sport: state.currentSport }]);
           return { ok: true };
         } finally {
@@ -401,7 +456,7 @@ export const useGame = create<GameStore>((set, get) => {
       },
 
       resetGame() {
-        clearShots();
+        abandonRound();
         services.save.clear();
         const now = Date.now();
         const state = E.createInitialState(balance, now);
@@ -418,5 +473,6 @@ export const useGame = create<GameStore>((set, get) => {
 
 /** Selector helpers for components. */
 export const selectSport = (s: GameStore) => s.state.sports[s.state.currentSport];
-export const selectMoney = (s: GameStore) => s.state.sports[s.state.currentSport].money;
+/** Banked money plus what the live round has earned so far, so the pill moves during a round. */
+export const selectMoney = (s: GameStore) => s.state.sports[s.state.currentSport].money + (s.phase === 'playing' ? s.roundMoney : 0);
 export const selectSportId = (s: GameStore) => s.state.currentSport;

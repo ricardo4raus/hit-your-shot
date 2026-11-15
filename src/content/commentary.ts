@@ -52,8 +52,8 @@ export interface CommentaryInput {
   heavyBall: boolean;
 }
 
-/** Which pool fits the round. The reveal lines win; then the extremes; then plain. */
-export function situationFor(input: CommentaryInput): Situation {
+/** Which pool fits the round. The reveal lines win; then the extremes; then plain. `manyBallsShots` comes from balance.commentary. */
+export function situationFor(input: CommentaryInput, manyBallsShots: number): Situation {
   if (input.firstRoundWithLimbs) {
     if (input.limbKind === 'foot') {
       if (input.limbs === 2) return 'firstTwoFeet';
@@ -64,7 +64,7 @@ export function situationFor(input: CommentaryInput): Situation {
     }
     if (input.limbs >= 4) return 'firstManyLimbs';
   }
-  if (input.shots >= 150) return 'manyBalls';
+  if (input.shots >= manyBallsShots) return 'manyBalls';
   if (input.shots > 0 && input.hits === 0) return 'zero';
   if (input.newBest) return 'newBest';
   if (input.shots >= 4 && input.hits === input.shots) return 'perfect';
