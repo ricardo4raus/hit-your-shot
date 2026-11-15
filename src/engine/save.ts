@@ -18,7 +18,7 @@
 import { z } from 'zod';
 
 import type { Balance } from './balance';
-import type { GameState } from './types';
+import { SPORT_IDS, UPGRADE_IDS, type GameState, type SportState } from './types';
 
 export const CURRENT_SAVE_VERSION = 1;
 
@@ -28,15 +28,134 @@ export interface SaveFile {
   state: GameState;
 }
 
+/**
+ * migrations[n] upgrades a save of version n to n + 1. Each migration receives the whole parsed file ({ saveVersion, savedAt, state, ... })
+ * and returns the upgraded file, or anything that is not an object to discard the save. deserialize sets saveVersion to n + 1 afterwards.
+ * Empty for version 1.
+ */
 export const migrations: Record<number, (old: unknown) => unknown> = {};
 
-/** Must match GameState in types.ts. Replaced by the module agent with the full schema. */
-export const GameStateSchema: z.ZodType<GameState> = z.any() as unknown as z.ZodType<GameState>;
+// zod v4: z.number() already rejects NaN and both infinities, so every number below is finite.
+const finite = z.number();
+const nonNeg = z.number().nonnegative();
+// Counters stay far below 2^53 in any realistic game, so int() is safe here.
+const nonNegInt = z.number().int().nonnegative();
+const RNG_STATE_MAX = 0xffffffff;
 
-export function serialize(_state: GameState, _now: number): string {
-  throw new Error('not implemented');
+const SportIdSchema = z.enum(SPORT_IDS);
+const UpgradeIdSchema = z.enum(UPGRADE_IDS);
+
+const SportStateSchema = z.object({
+  unlocked: z.boolean(),
+  money: nonNeg,
+  upgrades: z.record(UpgradeIdSchema, nonNegInt),
+  ownedBalls: z.array(z.string()),
+  limbs: z.number().int().min(1),
+  limbBalls: z.array(z.string()),
+  bestRound: nonNeg,
+  lastRoundMoney: nonNeg,
+  roundsPlayed: nonNegInt,
+  lifetimeMoney: nonNeg,
+  shotsFired: nonNegInt,
+  hits: nonNegInt,
+  trophyMilestones: z.array(z.string()),
+  mastered: z.boolean(),
+});
+
+const OfflineStateSchema = z.object({
+  pendingDouble: nonNeg,
+  lastSeconds: nonNeg,
+});
+
+const AdsStateSchema = z.object({
+  roundsSinceX2: nonNegInt,
+});
+
+const SettingsSchema = z.object({
+  sound: z.boolean(),
+  haptics: z.boolean(),
+});
+
+const GameStateObjectSchema = z.object({
+  createdAt: finite,
+  lastSeenAt: finite,
+  clockHighWater: finite,
+  currentSport: SportIdSchema,
+  sports: z.record(SportIdSchema, SportStateSchema),
+  trophies: nonNeg,
+  offline: OfflineStateSchema,
+  ads: AdsStateSchema,
+  removeAds: z.boolean(),
+  settings: SettingsSchema,
+  rngState: z.number().int().min(0).max(RNG_STATE_MAX),
+});
+
+// Compile-time check: the schema and GameState must describe exactly the same shape, in both directions.
+type AssertAssignable<To, _From extends To> = true;
+type _SchemaToState = AssertAssignable<GameState, z.infer<typeof GameStateObjectSchema>>;
+type _StateToSchema = AssertAssignable<z.infer<typeof GameStateObjectSchema>, GameState>;
+
+/** Must match GameState in types.ts. Unknown fields are stripped. */
+export const GameStateSchema: z.ZodType<GameState> = GameStateObjectSchema;
+
+const SaveFileSchema = z.object({
+  saveVersion: z.literal(CURRENT_SAVE_VERSION),
+  savedAt: finite,
+  state: GameStateSchema,
+});
+
+export function serialize(state: GameState, now: number): string {
+  const file: SaveFile = { saveVersion: CURRENT_SAVE_VERSION, savedAt: now, state };
+  return JSON.stringify(file);
 }
 
-export function deserialize(_raw: string, _balance: Balance): GameState | null {
-  throw new Error('not implemented');
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/** Checks one sport against the balance it will be played with. The schema has already checked shapes and signs. */
+function sportIsConsistent(sport: SportState, balls: ReadonlySet<string>, maxLevel: number): boolean {
+  if (sport.limbBalls.length !== sport.limbs) return false;
+  for (const id of sport.ownedBalls) if (!balls.has(id)) return false;
+  for (const id of sport.limbBalls) if (!balls.has(id)) return false;
+  for (const id of UPGRADE_IDS) {
+    const level = sport.upgrades[id];
+    if (level < 0 || level > maxLevel) return false;
+  }
+  return true;
+}
+
+function isConsistentWith(state: GameState, balance: Balance): boolean {
+  for (const id of SPORT_IDS) {
+    const balls = new Set(balance.sports[id].balls.map((b) => b.id));
+    if (!sportIsConsistent(state.sports[id], balls, balance.upgrades.maxLevel)) return false;
+  }
+  return true;
+}
+
+export function deserialize(raw: string, balance: Balance): GameState | null {
+  try {
+    let file: unknown = JSON.parse(raw);
+    if (!isRecord(file)) return null;
+
+    const version = file.saveVersion;
+    if (typeof version !== 'number' || !Number.isInteger(version)) return null;
+    if (version > CURRENT_SAVE_VERSION) return null;
+
+    // Older versions need an unbroken migration chain up to the current version.
+    for (let v = version; v < CURRENT_SAVE_VERSION; v++) {
+      const migrate = migrations[v];
+      if (!migrate) return null;
+      const upgraded = migrate(file);
+      if (!isRecord(upgraded)) return null;
+      file = { ...upgraded, saveVersion: v + 1 };
+    }
+
+    const parsed = SaveFileSchema.safeParse(file);
+    if (!parsed.success) return null;
+    const state = parsed.data.state;
+    return isConsistentWith(state, balance) ? state : null;
+  } catch {
+    return null;
+  }
 }
