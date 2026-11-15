@@ -18,24 +18,52 @@
  * May import only: ./types, ./balance, ./state.
  */
 import type { Balance } from './balance';
-import type { ActionResult, GameState } from './types';
+import { currentSport, withSport } from './state';
+import { fail, succeed, type ActionResult, type GameEvent, type GameState } from './types';
 
-export function offlineSeconds(_state: GameState, _balance: Balance, _now: number): number {
-  throw new Error('not implemented');
+const MS_PER_SECOND = 1000;
+const SECONDS_PER_MINUTE = 60;
+
+/**
+ * Seconds away that count for the payout. The gap is measured from the later of lastSeenAt and clockHighWater, so a clock that was
+ * moved back and forth never pays the same stretch twice. Capped, and zero when the gap is shorter than the minimum.
+ */
+export function offlineSeconds(state: GameState, balance: Balance, now: number): number {
+  const since = Math.max(state.lastSeenAt, state.clockHighWater);
+  const raw = (now - since) / MS_PER_SECOND;
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  const seconds = Math.min(raw, balance.offline.capMinutes * SECONDS_PER_MINUTE);
+  if (seconds < balance.offline.minSecondsAway) return 0;
+  return seconds;
 }
 
-export function computeOfflineEarnings(_state: GameState, _balance: Balance, _now: number): { seconds: number; money: number } {
-  throw new Error('not implemented');
+export function computeOfflineEarnings(state: GameState, balance: Balance, now: number): { seconds: number; money: number } {
+  const seconds = offlineSeconds(state, balance, now);
+  const perMinute = currentSport(state).lastRoundMoney * balance.offline.fractionOfLastRoundPerMinute;
+  const money = seconds > 0 && perMinute > 0 ? perMinute * (seconds / SECONDS_PER_MINUTE) : 0;
+  return { seconds, money };
 }
 
-export function applyOfflineEarnings(_state: GameState, _balance: Balance, _now: number): ActionResult {
-  throw new Error('not implemented');
+export function applyOfflineEarnings(state: GameState, balance: Balance, now: number): ActionResult {
+  const { seconds, money } = computeOfflineEarnings(state, balance, now);
+  const sport = currentSport(state);
+  const paid = withSport(state, state.currentSport, { ...sport, money: sport.money + money });
+  const next = touchClock({ ...paid, offline: { pendingDouble: money, lastSeconds: seconds } }, now);
+  const events: GameEvent[] = money > 0 ? [{ type: 'offlineEarned', money, seconds }] : [];
+  return succeed(next, events);
 }
 
-export function claimOfflineDouble(_state: GameState, _balance: Balance): ActionResult {
-  throw new Error('not implemented');
+export function claimOfflineDouble(state: GameState, balance: Balance): ActionResult {
+  const pending = state.offline.pendingDouble;
+  if (!(pending > 0)) return fail(state, 'not_available');
+  const bonus = pending * (balance.offline.adDoubleMult - 1);
+  const sport = currentSport(state);
+  const paid = withSport(state, state.currentSport, { ...sport, money: sport.money + bonus });
+  return succeed({ ...paid, offline: { ...state.offline, pendingDouble: 0 } });
 }
 
-export function touchClock(_state: GameState, _now: number): GameState {
-  throw new Error('not implemented');
+/** Records that the app was seen at `now`. A non-finite `now` leaves the clock alone. */
+export function touchClock(state: GameState, now: number): GameState {
+  if (!Number.isFinite(now)) return state;
+  return { ...state, lastSeenAt: now, clockHighWater: Math.max(state.clockHighWater, now) };
 }

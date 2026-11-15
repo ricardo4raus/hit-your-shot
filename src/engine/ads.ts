@@ -11,16 +11,18 @@
  * May import only: ./types, ./balance.
  */
 import type { Balance } from './balance';
-import type { ActionResult, GameState } from './types';
+import { fail, succeed, type ActionResult, type GameState } from './types';
 
-export function canWatchX2(_state: GameState, _balance: Balance): boolean {
-  throw new Error('not implemented');
+export function canWatchX2(state: GameState, balance: Balance): boolean {
+  if (state.removeAds) return true;
+  return state.ads.roundsSinceX2 >= balance.ads.x2EveryRounds;
 }
 
-export function markX2Used(_state: GameState): GameState {
-  throw new Error('not implemented');
+export function markX2Used(state: GameState): GameState {
+  return { ...state, ads: { ...state.ads, roundsSinceX2: 0 } };
 }
 
-export function buyRemoveAds(_state: GameState): ActionResult {
-  throw new Error('not implemented');
+export function buyRemoveAds(state: GameState): ActionResult {
+  if (state.removeAds) return fail(state, 'already_owned');
+  return succeed({ ...state, removeAds: true }, [{ type: 'removeAdsBought' }]);
 }
