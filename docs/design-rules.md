@@ -114,11 +114,12 @@ Rules:
 - Shooting: anticipation (arm back, 80 ms), release (arm forward, ball leaves, 60 ms), settle (120 ms). Heavy balls stretch anticipation to 160 ms and add the strain face.
 - Reacting: a miss that bounces back and hits the character gets the surprise face and a 3-frame shake. A perfect round gets smug. Reactions last under 600 ms and never block input.
 
-Extra arms (see `docs/game-design.md`, the arms are a surprise):
+Extra limbs (see `docs/game-design.md`; the limbs are a surprise). Each sport uses the body part the sport uses: arms in basketball and golf, **feet in football**. Every sport starts with one of that limb. Characters are per sport.
 
-- Arms attach where arms would attach if the body were sensible about it, and then stop being sensible: arms 1 and 2 at the shoulders, arm 3 from the middle of the back, arm 4 from the hip, arm 5 from under arm 3. The character never comments. The shop card never says "arms". The card says the character's name and shows a silhouette with the arm count hidden behind the body.
-- The first time a new character walks in, the extra arm is **folded** and unfolds on the first shot. No fanfare text, no confetti. The commentator line (section 10) is the only acknowledgement.
-- From arm 5 on, each new arm does something other than shoot once before shooting: holds a drink, waves, scratches the head. Then it joins the line. This is the only place in the game where a gag is scripted rather than emergent.
+- Limbs attach where they would attach if the body were sensible about it, and then stop being sensible: arms 1 and 2 at the shoulders, arm 3 from the middle of the back, arm 4 from the hip, arm 5 from under arm 3. Feet: 1 and 2 at the hips, foot 3 from the side of the torso, foot 4 from the back, and the character stands on whichever feet are not kicking. The character never comments. The shop card never says "arms" or "feet". The card says the character's name and shows a silhouette with the limb count hidden behind the body.
+- The first time a new character walks in, the extra limb is **folded** (an arm against the body, a foot tucked behind the standing leg) and unfolds on the first shot. No fanfare text, no confetti. The commentator line (section 10) is the only acknowledgement.
+- From limb 5 on, each new limb does something other than shoot once before shooting: an arm holds a drink, waves, scratches the head; a foot taps, stretches, or kicks the standing leg. Then it joins the line. This is the only place in the game where a gag is scripted rather than emergent.
+- Football with one foot: the character hops. The hop is the walk cycle. It is slow, slightly undignified, and not fixed when more feet arrive; extra feet kick, they do not help walking.
 
 **Why:** the arms are funny only if the game pretends they are normal. A banner saying "NEW ARM UNLOCKED!!!" turns a joke into a feature list. Deadpan is a design rule here, not a tone preference.
 
@@ -172,7 +173,9 @@ Example pool (write more in this register; delete anything that sounds like it b
 - "That one had opinions."
 - "Both hands. Interesting choice." (first round with 2 arms)
 - "The league has been informed." (first round with 3 arms)
-- "No comment." (first round with 4 or more arms)
+- "No comment." (first round with 4 or more limbs)
+- "Both feet. Still standing. Somehow." (first round with 2 feet in football)
+- "Three feet. One ball. Fair." (first round with 3 feet)
 - "Heavy ball. Heavy round."
 - "Golf, allegedly."
 - "Keeper never saw it. Keeper is a cone."

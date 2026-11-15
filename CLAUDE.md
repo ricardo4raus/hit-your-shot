@@ -11,6 +11,7 @@ Status: idea approved, design and repository setup done, no game code yet.
 - `docs/analysis.md`: the idea through a designer's, a loop expert's and a casual player's eyes; benchmarks and pacing targets.
 - `docs/open-decisions.md`: one proposal per open item in Part 2, with reasons and cost. The owner decides; nothing there is built before that.
 - `docs/shared-code.md`: what can be reused from `../neural-tycoon` and how shared code for all apps should work.
+- `docs/decisions.md`: owner decisions with dates and reasons. Add a row for every new decision.
 - `docs/dev-notes.md`: branches, PRs, CI, commit identity, where files go.
 
 ## Rules
