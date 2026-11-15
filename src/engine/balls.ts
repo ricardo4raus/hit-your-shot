@@ -12,17 +12,43 @@
  *
  * May import only: ./types, ./balance, ./state.
  */
-import type { Balance } from './balance';
-import type { ActionResult, BallId, GameState } from './types';
+import { ballDefOf, type Balance } from './balance';
+import { currentSport, withSport } from './state';
+import { fail, succeed, type ActionResult, type BallId, type GameState } from './types';
 
-export function buyBall(_state: GameState, _balance: Balance, _ballId: BallId): ActionResult {
-  throw new Error('not implemented');
+/** Buys a ball for the current sport. The limbs keep the balls they had. */
+export function buyBall(state: GameState, balance: Balance, ballId: BallId): ActionResult {
+  const sportId = state.currentSport;
+  const sport = currentSport(state);
+  const def = ballDefOf(balance, sportId, ballId);
+  if (!def) return fail(state, 'unknown_id');
+  if (sport.ownedBalls.includes(ballId)) return fail(state, 'already_owned');
+  if (def.cost > sport.money) return fail(state, 'not_enough_money');
+
+  const next = { ...sport, money: sport.money - def.cost, ownedBalls: [...sport.ownedBalls, ballId] };
+  return succeed(withSport(state, sportId, next), [{ type: 'ballBought', sport: sportId, id: ballId }]);
 }
 
-export function assignLimbBall(_state: GameState, _balance: Balance, _limb: number, _ballId: BallId): ActionResult {
-  throw new Error('not implemented');
+/** Puts an owned ball on one limb of the current sport. */
+export function assignLimbBall(state: GameState, balance: Balance, limb: number, ballId: BallId): ActionResult {
+  const sportId = state.currentSport;
+  const sport = currentSport(state);
+  if (!ballDefOf(balance, sportId, ballId)) return fail(state, 'unknown_id');
+  if (!Number.isInteger(limb) || limb < 0 || limb >= sport.limbs) return fail(state, 'invalid');
+  if (!sport.ownedBalls.includes(ballId)) return fail(state, 'not_owned');
+
+  const limbBalls = sport.limbBalls.slice();
+  limbBalls[limb] = ballId;
+  return succeed(withSport(state, sportId, { ...sport, limbBalls }));
 }
 
-export function assignAllLimbs(_state: GameState, _balance: Balance, _ballId: BallId): ActionResult {
-  throw new Error('not implemented');
+/** Puts an owned ball on every limb of the current sport. */
+export function assignAllLimbs(state: GameState, balance: Balance, ballId: BallId): ActionResult {
+  const sportId = state.currentSport;
+  const sport = currentSport(state);
+  if (!ballDefOf(balance, sportId, ballId)) return fail(state, 'unknown_id');
+  if (!sport.ownedBalls.includes(ballId)) return fail(state, 'not_owned');
+
+  const limbBalls = sport.limbBalls.map(() => ballId);
+  return succeed(withSport(state, sportId, { ...sport, limbBalls }));
 }
