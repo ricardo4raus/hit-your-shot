@@ -62,7 +62,7 @@ Each module is one file plus its tests in `src/engine/__tests__/<module>.test.ts
 | Module | File | Owner | Depends on | Does |
 |---|---|---|---|---|
 | ballistics | `ballistics.ts` | agent "ballistics" | contracts | `targetPose`, `resolveShot`, `positionAt`, geometry helpers. The heart of the game. |
-| limbs | `limbs.ts` | agent "limbs" | contracts | `limbAnchors(n, kind)` (procedural body placement), `muzzleOffsets(n, sportDef)` (parallel shot offsets with span cap) |
+| limbs | `limbs.ts` | agent "limbs" | contracts | `limbAnchors(n, kind)` (procedural body placement), `muzzleOffsets(n, sportDef, balance)` (parallel shot offsets with span cap) |
 | upgrades | `upgrades.ts` | agent "economy" | contracts | costs and effects of the three cards: `upgradeCost`, `spreadDeg`, `shotsPerSec`, `incomeMult`, `buyUpgrade`, `isMastered` |
 | balls | `balls.ts` | agent "economy" | contracts | `ballDef`, `buyBall`, `assignLimbBall` |
 | characters | `characters.ts` | agent "economy" | contracts | `characterCost`, `characterName`, `buyCharacter` |

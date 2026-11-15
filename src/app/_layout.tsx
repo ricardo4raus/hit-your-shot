@@ -29,6 +29,7 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#C9DCE8' } }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
       </Stack>
     </GestureHandlerRootView>
   );
