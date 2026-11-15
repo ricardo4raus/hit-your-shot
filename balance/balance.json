@@ -1,0 +1,138 @@
+{
+  "_comment": "Every game number. Keys starting with _ are comments. Read through src/engine/balance.ts only.",
+  "roundSeconds": 10,
+  "physics": {
+    "gravity": 9.81,
+    "stepSec": 0.008333333333333333,
+    "maxFlightSec": 6,
+    "restSpeed": 0.35,
+    "restLingerSec": 0.8,
+    "hitLingerSec": 0.6,
+    "maxShotsPerTick": 60,
+    "maxBallsInFlight": 600
+  },
+  "upgrades": {
+    "maxLevel": 40,
+    "accuracy": { "baseCost": 20, "costGrowth": 1.15, "baseSpreadDeg": 14, "spreadDecay": 0.9, "minSpreadDeg": 0.6 },
+    "fireRate": { "baseCost": 20, "costGrowth": 1.16, "baseShotsPerSec": 1.2, "perLevel": 0.18 },
+    "income": { "baseCost": 20, "costGrowth": 1.17, "perLevel": 0.5 }
+  },
+  "characters": {
+    "_comment": "Character n has n limbs. Cost of character n (n >= 2) = baseCost * costGrowth^(n-2). softCapLimbs is a performance guard, not a design cap.",
+    "baseCost": 600,
+    "costGrowth": 2.6,
+    "softCapLimbs": 64,
+    "names": ["Doug", "Petra", "Lennart", "Mo", "Ingrid", "Bastian", "Yuki", "Olu", "Marta", "Sven", "Priya", "Teo"]
+  },
+  "limbs": {
+    "_comment": "Parallel shot offsets. spacing = spacingFraction * target width; the whole group spans at most maxSpanFraction * field width.",
+    "spacingFraction": 0.35,
+    "maxSpanFraction": 0.45
+  },
+  "trophies": {
+    "upgradeTierEvery": 5,
+    "perUpgradeTier": 1,
+    "perNewBall": 2,
+    "perBestRoundDecade": 1,
+    "bestRoundFirstDecade": 100
+  },
+  "mastery": { "incomeBonusPerSport": 0.1 },
+  "offline": {
+    "fractionOfLastRoundPerMinute": 0.05,
+    "capMinutes": 120,
+    "minSecondsAway": 60,
+    "adDoubleMult": 2
+  },
+  "ads": {
+    "x2RoundMult": 2,
+    "x2EveryRounds": 3
+  },
+  "shop": {
+    "removeAdsPriceUsd": 2.99,
+    "removeAdsProductId": "remove_ads"
+  },
+  "sports": {
+    "basketball": {
+      "name": "Basketball",
+      "limb": "arm",
+      "unlockTrophies": 0,
+      "field": { "width": 10, "height": 7, "origin": { "x": 2.5, "y": 1.6 } },
+      "ballRadius": 0.12,
+      "target": {
+        "kind": "hoop",
+        "center": { "x": 8.0, "y": 3.05 },
+        "halfWidth": 0.23,
+        "motion": { "axis": "x", "amplitude": 1.2, "periodSec": 4.5 },
+        "backboard": { "dx": 0.38, "yFrom": -0.15, "yTo": 0.95 },
+        "rimRadius": 0.025
+      },
+      "surfaces": {
+        "floorRestitution": 0.55,
+        "wallRestitution": 0.7,
+        "ceilingRestitution": 0.4,
+        "backboardRestitution": 0.75,
+        "rimRestitution": 0.6,
+        "friction": 0.85
+      },
+      "balls": [
+        { "id": "foam", "name": "Foam ball", "cost": 0, "value": 1, "accuracyPenaltyDeg": 0, "fireRateMult": 1.35, "launchSpeed": 9.2, "radiusMult": 0.9 },
+        { "id": "regulation", "name": "Regulation", "cost": 250, "value": 4, "accuracyPenaltyDeg": 2.5, "fireRateMult": 1.0, "launchSpeed": 8.8, "radiusMult": 1.0 },
+        { "id": "medicine", "name": "Medicine ball", "cost": 2400, "value": 18, "accuracyPenaltyDeg": 7, "fireRateMult": 0.55, "launchSpeed": 8.0, "radiusMult": 1.15 }
+      ]
+    },
+    "football": {
+      "name": "Football",
+      "limb": "foot",
+      "unlockTrophies": 10,
+      "field": { "width": 12, "height": 6, "origin": { "x": 2.5, "y": 0.3 } },
+      "ballRadius": 0.11,
+      "target": {
+        "kind": "goal",
+        "center": { "x": 10.2, "y": 1.22 },
+        "halfWidth": 1.22,
+        "motion": { "axis": "keeper", "amplitude": 0.9, "periodSec": 3.5 },
+        "keeperHalfWidth": 0.35,
+        "keeperHeight": 1.9
+      },
+      "surfaces": {
+        "floorRestitution": 0.5,
+        "wallRestitution": 0.6,
+        "ceilingRestitution": 0.4,
+        "backboardRestitution": 0.6,
+        "rimRestitution": 0.6,
+        "friction": 0.8
+      },
+      "balls": [
+        { "id": "beach", "name": "Beach ball", "cost": 0, "value": 1, "accuracyPenaltyDeg": 0, "fireRateMult": 1.35, "launchSpeed": 12, "radiusMult": 1.2 },
+        { "id": "match", "name": "Match ball", "cost": 250, "value": 4, "accuracyPenaltyDeg": 2.5, "fireRateMult": 1.0, "launchSpeed": 13, "radiusMult": 1.0 },
+        { "id": "bowling", "name": "Bowling ball", "cost": 2400, "value": 18, "accuracyPenaltyDeg": 7, "fireRateMult": 0.55, "launchSpeed": 10, "radiusMult": 1.0 }
+      ]
+    },
+    "golf": {
+      "name": "Golf",
+      "limb": "arm",
+      "unlockTrophies": 25,
+      "field": { "width": 14, "height": 8, "origin": { "x": 2.0, "y": 0.4 } },
+      "ballRadius": 0.06,
+      "target": {
+        "kind": "hole",
+        "center": { "x": 11.5, "y": 0 },
+        "halfWidth": 0.11,
+        "motion": { "axis": "x", "amplitude": 1.5, "periodSec": 0 }
+      },
+      "surfaces": {
+        "floorRestitution": 0.35,
+        "wallRestitution": 0.5,
+        "ceilingRestitution": 0.4,
+        "backboardRestitution": 0.5,
+        "rimRestitution": 0.5,
+        "friction": 0.7
+      },
+      "balls": [
+        { "id": "pingpong", "name": "Ping-pong ball", "cost": 0, "value": 1, "accuracyPenaltyDeg": 0, "fireRateMult": 1.35, "launchSpeed": 13, "radiusMult": 1.0 },
+        { "id": "golf", "name": "Golf ball", "cost": 250, "value": 4, "accuracyPenaltyDeg": 2.5, "fireRateMult": 1.0, "launchSpeed": 14, "radiusMult": 1.0 },
+        { "id": "steel", "name": "Steel ball", "cost": 2400, "value": 18, "accuracyPenaltyDeg": 7, "fireRateMult": 0.55, "launchSpeed": 12, "radiusMult": 1.0 }
+      ]
+    }
+  }
+}

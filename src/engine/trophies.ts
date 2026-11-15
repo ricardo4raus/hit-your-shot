@@ -1,0 +1,49 @@
+/**
+ * MODULE: trophies. Owner: agent "economy". docs/game-design.md "Sports" (Trophies, mastery bonus), docs/open-decisions.md items 3 and 5.
+ * Trophies are a small global currency earned at milestones in every sport. They buy sports and nothing else.
+ *
+ * Rules:
+ * - Milestone ids (strings, stored in sport.trophyMilestones once paid):
+ *     "upgrade:<id>:<tier>"  every balance.trophies.upgradeTierEvery levels of a card (tier = level / upgradeTierEvery, from 1) → perUpgradeTier
+ *     "ball:<ballId>"        each owned ball except the first in the list → perNewBall
+ *     "best:<decade>"        bestRound >= bestRoundFirstDecade × 10^(decade) for decade 0, 1, 2, ... → perBestRoundDecade
+ * - dueMilestones(sport, balance): all milestones the sport's numbers justify that are not yet in trophyMilestones, in a stable order
+ *   (upgrades by UPGRADE_IDS then tier, balls in balance order, best by decade).
+ * - awardMilestones(state, balance, sportId): pays every due milestone: trophies += amount, append ids, one `trophy` event per milestone.
+ *   Returns { state, events }. Called by round.ts at settle and by the store after purchases.
+ * - masteryBonus(state, balance): 1 + incomeBonusPerSport × (number of mastered sports). Applies in every sport.
+ * - unlockSport(state, balance, sportId): 'already_owned' if unlocked, 'not_enough_trophies' if trophies < unlockTrophies. Subtract,
+ *   set unlocked, event sportUnlocked. Does not switch the current sport.
+ * - selectSport(state, sportId): 'locked' if not unlocked; sets currentSport and resets ads.roundsSinceX2 to the x2 cap so the first
+ *   round in a sport may use ×2.
+ * - Tests (src/engine/__tests__/trophies.test.ts): each milestone kind pays once, order stable, mastery bonus counts sports, unlock and select.
+ *
+ * May import only: ./types, ./balance, ./state.
+ */
+import type { Balance } from './balance';
+import type { ActionResult, GameEvent, GameState, SportId, SportState } from './types';
+
+export interface Milestone {
+  id: string;
+  amount: number;
+}
+
+export function dueMilestones(_sport: SportState, _balance: Balance): Milestone[] {
+  throw new Error('not implemented');
+}
+
+export function awardMilestones(_state: GameState, _balance: Balance, _sportId: SportId): { state: GameState; events: GameEvent[] } {
+  throw new Error('not implemented');
+}
+
+export function masteryBonus(_state: GameState, _balance: Balance): number {
+  throw new Error('not implemented');
+}
+
+export function unlockSport(_state: GameState, _balance: Balance, _sportId: SportId): ActionResult {
+  throw new Error('not implemented');
+}
+
+export function selectSport(_state: GameState, _balance: Balance, _sportId: SportId): ActionResult {
+  throw new Error('not implemented');
+}
