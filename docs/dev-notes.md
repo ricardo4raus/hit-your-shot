@@ -56,8 +56,7 @@ npx --yes markdownlint-cli2@0.17.2 "**/*.md" "#node_modules"   # the same lint C
 ## Agent worktrees
 
 Module agents work in `.claude/worktrees/<name>` on branch `agent/<name>`. Do not reinstall packages there; link them:
-`cmd //c "mklink /J node_modules C:\MobileApps\hit-your-shot
-ode_modules"`. The junction must stay untracked, so agents add explicit paths
+`cmd //c "mklink /J node_modules C:\MobileApps\hit-your-shot\node_modules"`. The junction must stay untracked, so agents add explicit paths
 and never run `git add -A`. Set the noreply identity in each worktree (`git config user.name`, `git config user.email`). Remove the junction
 with `cmd /c rmdir node_modules` before deleting a worktree, or the shared packages go with it.
 
