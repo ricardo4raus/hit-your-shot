@@ -33,7 +33,7 @@ Leave: splitting the screen into two scenes, and the heavy drop shadow under eve
 - Shapes are flat fills with a dark outline of constant width (3 px at 1× on phones, scaled with the asset). No gradients inside shapes, except a single two-tone split (light top, darker bottom) on round things like balls, to show volume.
 - Characters, balls, targets and props are drawn as vector shapes (SVG, or Skia paths generated from code). No raster sprites, no pixel art, no 3D renders, no photos.
 - Backgrounds are simplified silhouettes in two or three steps of the same hue, lighter and bluer toward the back (the haze in reference 1). No detail in backgrounds. A background that could be described in one sentence is correct.
-- Shadows under objects are a flat dark ellipse, no blur. Interface shadows are a hard offset (0 px right, 4 px down, same hue darker), no blur, no spread.
+- Shadows under world objects are a flat dark ellipse, no blur. **Interface elements cast no shadow** (owner decision 2026-11-15: a drop shadow under an outlined button read as a thicker bottom outline). Every outline is the same width on every side: 3 px on cards, buttons, pills and balls alike.
 - Rounded corners on interface elements are large (20 px cards, 16 px buttons, full pill for tags). Corners on world objects follow the object: a goal post is square.
 
 **Why:** this style is produced by code and by agents with the same result every time, it scales to every screen, and it survives being drawn in a hurry. It is also the only style where a character with four arms still reads clearly at phone size. Gradients, blur and glow are what generated interfaces reach for first, so we simply do not have them available.
@@ -91,7 +91,7 @@ Rules:
 - Grid: 16 pt gutter, 8 pt base unit, 12 pt between cards. Touch targets at least 48 × 48 pt.
 - The play field is the top 70% of the screen. The character stands **left of center**, at about 25% of the width, feet at about 65% of the height. The target is on the right. This asymmetry is intentional and must not be "fixed".
 - Money sits top center in a `paper` pill with an `ink` outline. Nothing else is in the top bar during a round. Settings is a small ghost button top right.
-- The upgrade cards sit in the bottom 30%: three cards, equal width, each with name, icon, pips, and one button that shows the price. The cards are always visible, during and between rounds. The button is `paper2` and flat when unaffordable, saturated and raised (4 pt hard shadow) when affordable.
+- The upgrade cards sit in the bottom 30%: three cards, equal width, each with name, icon, pips, and one button that shows the price. The cards are always visible, but **buying happens only between rounds** (owner decision 2026-11-15): during a round every buy button is disabled. The button is `paper2` and flat when unaffordable or during a round, and filled when it can be pressed.
 - Between rounds a result panel slides up **over the play field, not over the cards**, so the player reads the result and presses an upgrade without any navigation.
 - Empty space is allowed and wanted. If a screen feels empty, that is the background's job to fix with haze, not the interface's job to fix with widgets.
 - Every screen has **one odd choice**: something off-grid, oversized or tilted that a template would not do. The character off-center, the result number tilted 4 degrees, the "NEW!" tag hanging over the card edge. One per screen, never three.
@@ -130,7 +130,7 @@ Everything the player does gets a reaction within 100 ms. Everything the game do
 
 | Moment | What happens | Timing |
 |---|---|---|
-| Press a button | scales to 0.96, shadow collapses to 0 | 90 ms down, 160 ms up, spring with slight overshoot |
+| Press a button | scales to 0.96 | 90 ms down, 160 ms up, spring with slight overshoot |
 | Drag the aim line | line follows the finger with no smoothing; the spread cone follows | immediate |
 | Ball leaves the hand | ball stretches 1.15 along the direction of travel for 2 frames | 40 ms |
 | Hit | target reacts (net swish, flag wobble, net bulge), ball squashes 0.8, `+$` text flies up and fades, coin pops toward the money pill | reaction 200 ms, text 500 ms |
@@ -234,3 +234,15 @@ Still open and listed in `docs/open-decisions.md`: the exact sports and their or
 3. **A deadpan commentator and a character who never speaks.** The arms are the joke; the game must not laugh at its own joke. Loud "NEW ARM!!!" banners would make it a feature list.
 4. **A motion budget.** Few, short, physical animations with distinct timing, instead of everything easing in and out forever. Celebration (confetti) is rationed to two moments so it still means something.
 5. **One odd choice per screen.** A rule that forces a human decision into every layout. It is the cheapest insurance against the "could be any app" feeling you describe.
+
+## 15. Where the art comes from
+
+Everything on screen today is drawn by code: the character, limbs, hoop, balls and the upgrade icons are Skia paths and plain views built from the theme tokens. That is deliberate: it is the one way to get the same outline width and the same palette everywhere, and procedural limbs need a procedural body. It is also why the first version looks plain.
+
+For the next layer of art (balls with a face, sport props, the icon, store screenshots), three sources, in this order:
+
+1. **Draw it in code or as SVG by hand.** The lead writes SVG paths for simple objects (a ball with a two-tone split and a seam, a flag, a cone keeper). Cheap, consistent, no licence questions. Good enough for everything round or rectangular.
+2. **CC0 asset packs for props.** Kenney (kenney.nl, CC0, no credit needed) has sports, shape and UI packs in a flat vector style close to ours; OpenGameArt filtered to CC0. Recolor to the palette, redraw the outline at 3 px. Never mix a pack's style with ours unedited.
+3. **AI tools for concepts and one-off illustrations**, never for in-game sprites unedited. Recraft (vector output, keeps a style across a set, usable for icon families), Adobe Firefly (trained on licensed material, safest commercially), Ideogram or Midjourney for mood boards and store artwork. Rules: generate in our palette with "flat vector, thick dark outline, no gradient, no texture", always redraw or trace the result so the outline, colours and proportions match, and keep the prompt and the source file in `assets/src/`. Purely AI-generated images may not be protected by copyright in the US, which is one more reason the shipped asset is always an edited one. Nothing that resembles a real brand or athlete.
+
+What the owner decides per asset: approve the drawn version in a PR screenshot, or ask for a pack or AI pass. The checklist in section 12 applies to every asset exactly as it applies to a screen.

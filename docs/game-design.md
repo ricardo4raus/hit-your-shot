@@ -27,7 +27,7 @@ A mobile sports shooter with idle/upgrade progression. A character shoots balls 
 1. The player plays a short timed round of **10 seconds** (`roundSeconds` in `balance.json`; 8 and 12 to be tested, decided 2026-11-15).
 2. The character shoots balls at the target.
 3. Every goal / hit on the target earns money.
-4. Between rounds the player spends money on upgrades.
+4. Between rounds the player spends money on upgrades. **Nothing can be bought while a round runs** (owner, 2026-11-15): the round is for shooting, the pause after it is for buying.
 5. Repeat. Every round gets better.
 
 ### Aiming
