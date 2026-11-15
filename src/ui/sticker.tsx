@@ -1,20 +1,21 @@
 /**
- * Cut-out surfaces and buttons (design rules sections 3 and 6): flat fill, 3 pt ink outline, hard shadow 4 pt down, no blur.
- * A pressed button drops onto its shadow. A disabled button is flat paper2 with full-contrast text.
+ * Cut-out surfaces and buttons (design rules sections 3 and 6): flat fill, one ink outline of the same width on every side, no shadow,
+ * no blur. A pressed button shrinks a little and darkens. A disabled button is flat paper2 with full-contrast text.
+ * (The owner removed the hard drop shadow on 2026-11-15: it read as a thicker bottom outline.)
  */
 import { useCallback, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
 import { lightHaptic } from './feedback';
 import { AppText, type TextVariant } from './text';
-import { border, colors, motion, radius, shadow, touch } from './theme';
+import { border, colors, motion, radius, touch } from './theme';
 
 export interface StickerProps {
   children?: ReactNode;
   color?: string;
   rounded?: keyof typeof radius;
-  /** Hard shadow below. */
+  /** Kept for callers; stickers no longer cast a shadow. */
   raised?: boolean;
   style?: StyleProp<ViewStyle>;
   /** Width, flex and margins go here; the inner view carries the fill and padding. */
@@ -22,11 +23,10 @@ export interface StickerProps {
 }
 
 /** A flat card with an ink outline. */
-export function Sticker({ children, color = colors.paper, rounded = 'card', raised = true, style, outerStyle }: StickerProps) {
+export function Sticker({ children, color = colors.paper, rounded = 'card', style, outerStyle }: StickerProps) {
   const r = radius[rounded];
   return (
-    <View style={[{ paddingBottom: raised ? shadow.offset : 0 }, outerStyle]}>
-      {raised ? <View style={[styles.shadow, { borderRadius: r }]} /> : null}
+    <View style={outerStyle}>
       <View style={[styles.face, { backgroundColor: color, borderRadius: r }, style]}>{children}</View>
     </View>
   );
@@ -50,8 +50,9 @@ export interface StickerButtonProps {
 }
 
 const HEIGHT = { sm: touch.min, md: 56, lg: 68 } as const;
+const PRESSED_SCALE = 0.96;
 
-/** The pressable sticker. The face moves down onto the shadow while pressed. */
+/** The pressable sticker. The face shrinks slightly while pressed and springs back. */
 export function StickerButton({
   title,
   subtitle,
@@ -68,13 +69,14 @@ export function StickerButton({
   children,
 }: StickerButtonProps) {
   const down = useSharedValue(0);
-  const face = useAnimatedStyle(() => ({ transform: [{ translateY: down.value * shadow.offset }] }));
+  const reduced = useReducedMotion();
+  const face = useAnimatedStyle(() => ({ transform: [{ scale: 1 - down.value * (1 - PRESSED_SCALE) }] }));
   const onPressIn = useCallback(() => {
-    down.value = withTiming(1, { duration: motion.pressDown });
-  }, [down]);
+    down.value = reduced ? 1 : withTiming(1, { duration: motion.pressDown });
+  }, [down, reduced]);
   const onPressOut = useCallback(() => {
-    down.value = withSpring(0, motion.spring);
-  }, [down]);
+    down.value = reduced ? 0 : withSpring(0, motion.spring);
+  }, [down, reduced]);
   const handlePress = useCallback(() => {
     if (haptic) lightHaptic();
     onPress?.();
@@ -90,9 +92,8 @@ export function StickerButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? (subtitle ? `${title}, ${subtitle}` : title)}
       accessibilityState={{ disabled: !!disabled }}
-      style={[{ paddingBottom: shadow.offset }, outerStyle]}
+      style={outerStyle}
     >
-      {!disabled ? <View style={[styles.shadow, { borderRadius: radius.button }]} /> : null}
       <Animated.View style={[styles.face, styles.button, { backgroundColor: fill, minHeight: HEIGHT[size] }, face, style]}>
         {children ?? (
           <>
@@ -117,7 +118,6 @@ export function Pill({ children, color = colors.paper, style }: { children: Reac
 }
 
 const styles = StyleSheet.create({
-  shadow: { position: 'absolute', left: 0, right: 0, top: shadow.offset, bottom: 0, backgroundColor: colors.ink },
   face: { borderWidth: border.width, borderColor: colors.ink },
   button: { borderRadius: radius.button, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6 },
   pill: { borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
