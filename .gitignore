@@ -1,0 +1,41 @@
+# dependencies
+node_modules/
+
+# Expo / Metro
+.expo/
+/dist/
+/build/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+
+# generated native folders (Continuous Native Generation)
+/ios
+/android
+.kotlin/
+
+# signing and secrets: never commit
+*.keystore
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+.env
+.env.*
+
+# logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# typescript
+*.tsbuildinfo
+
+# Claude Code agent worktrees
+.claude/worktrees/
