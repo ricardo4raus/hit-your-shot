@@ -14,16 +14,64 @@
  * May import only: ./types, ./balance, ./state.
  */
 import type { Balance } from './balance';
-import type { ActionResult, GameState } from './types';
+import { currentSport, withSport } from './state';
+import { fail, succeed, type ActionResult, type GameState } from './types';
 
-export function characterCost(_balance: Balance, _limbs: number): number {
-  throw new Error('not implemented');
+/** Price of the character that has `limbs` limbs. The one-limb starting character is free. */
+export function characterCost(balance: Balance, limbs: number): number {
+  if (limbs <= 1) return 0;
+  const { baseCost, costGrowth } = balance.characters;
+  return Math.round(baseCost * Math.pow(costGrowth, limbs - 2));
 }
 
-export function characterName(_balance: Balance, _limbs: number): string {
-  throw new Error('not implemented');
+/** Roman numeral notation in its standard subtractive form (IV, IX, XL, ...). Notation, not a game number. */
+const ROMAN: ReadonlyArray<readonly [number, string]> = [
+  [1000, 'M'],
+  [900, 'CM'],
+  [500, 'D'],
+  [400, 'CD'],
+  [100, 'C'],
+  [90, 'XC'],
+  [50, 'L'],
+  [40, 'XL'],
+  [10, 'X'],
+  [9, 'IX'],
+  [5, 'V'],
+  [4, 'IV'],
+  [1, 'I'],
+];
+
+function romanNumeral(n: number): string {
+  let rest = n;
+  let out = '';
+  for (const [value, glyph] of ROMAN) {
+    while (rest >= value) {
+      out += glyph;
+      rest -= value;
+    }
+  }
+  return out;
 }
 
-export function buyCharacter(_state: GameState, _balance: Balance): ActionResult {
-  throw new Error('not implemented');
+/** Name of the character with `limbs` limbs. The list cycles; the second pass is "Doug II", the third "Doug III", and so on. */
+export function characterName(balance: Balance, limbs: number): string {
+  const names = balance.characters.names;
+  const index = Math.max(0, limbs - 1);
+  const name = names[index % names.length] ?? names[0] ?? '';
+  const pass = Math.floor(index / names.length);
+  return pass === 0 ? name : `${name} ${romanNumeral(pass + 1)}`;
+}
+
+/** Buys the next character of the current sport: one more limb, holding the same ball as limb 0. */
+export function buyCharacter(state: GameState, balance: Balance): ActionResult {
+  const sportId = state.currentSport;
+  const sport = currentSport(state);
+  if (sport.limbs >= balance.characters.softCapLimbs) return fail(state, 'not_available');
+  const limbs = sport.limbs + 1;
+  const cost = characterCost(balance, limbs);
+  if (cost > sport.money) return fail(state, 'not_enough_money');
+
+  const firstBall = sport.limbBalls[0] ?? sport.ownedBalls[0] ?? '';
+  const next = { ...sport, money: sport.money - cost, limbs, limbBalls: [...sport.limbBalls, firstBall] };
+  return succeed(withSport(state, sportId, next), [{ type: 'characterBought', sport: sportId, limbs }]);
 }
