@@ -8,6 +8,7 @@
  * - The aim is NOT React state. The play field writes it with `setAim(angle)` every frame; the store reads it when a limb fires.
  * - Shots arrive through `onShots` in store/shotBus.ts, never through React state.
  * - Call actions through `useGame.getState().actions.xxx(...)`. Every action returns `{ ok }` or `{ ok: false, error }`.
+ * - Nothing can be bought while a round plays (`between_rounds_only`); the UI disables the buttons and the store refuses anyway.
  * - Animations and toasts react to events: `useGameEvent` from store/events.ts.
  */
 import { AppState, type AppStateStatus } from 'react-native';
@@ -47,6 +48,8 @@ const TICK_MS = 1000 / 30;
 const SAVE_EVERY_MS = 5000;
 const HIT_HAPTIC_MIN_GAP_MS = 120;
 const TWO_PI = 2 * Math.PI;
+/** Owner decision 2026-11-15: the round is for shooting, the pause after it is for buying. */
+const BETWEEN_ROUNDS_ONLY: ActionStatus = { ok: false, error: 'between_rounds_only' };
 
 export interface GameActions {
   init(): void;
@@ -331,30 +334,35 @@ export const useGame = create<GameStore>((set, get) => {
       },
 
       buyUpgrade(id) {
+        if (get().phase === 'playing') return BETWEEN_ROUNDS_ONLY;
         const status = apply(E.buyUpgrade(get().state, balance, id));
         if (status.ok) afterPurchase('buy');
         return status;
       },
 
       buyBall(id) {
+        if (get().phase === 'playing') return BETWEEN_ROUNDS_ONLY;
         const status = apply(E.buyBall(get().state, balance, id));
         if (status.ok) afterPurchase('buy');
         return status;
       },
 
       assignLimbBall(limb, id) {
+        if (get().phase === 'playing') return BETWEEN_ROUNDS_ONLY;
         const status = apply(E.assignLimbBall(get().state, balance, limb, id));
         if (status.ok) saveNow(Date.now());
         return status;
       },
 
       assignAllLimbs(id) {
+        if (get().phase === 'playing') return BETWEEN_ROUNDS_ONLY;
         const status = apply(E.assignAllLimbs(get().state, balance, id));
         if (status.ok) saveNow(Date.now());
         return status;
       },
 
       buyCharacter() {
+        if (get().phase === 'playing') return BETWEEN_ROUNDS_ONLY;
         const status = apply(E.buyCharacter(get().state, balance));
         if (status.ok) {
           heavyHaptic();
