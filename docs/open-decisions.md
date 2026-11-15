@@ -4,11 +4,13 @@ One entry per open item in Part 2 of `docs/game-design.md`. Each entry has a pro
 
 Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`. Decisions are logged in `docs/decisions.md`.
 
-**Status after the owner's decisions of 2026-11-15:** decided: 3, 4, 9, 11 (offline part), 12 (version 1 placements), 13, 14, 15 (name), 17, 18, and the mode in 6. Still open: 1, 2 (order after basketball), 5, 6 (details), 7, 8, 10, 12 (prices and caps), 16 (video ads), and the domain choice.
+**Status after the owner's decisions of 2026-11-15 (two rounds): everything is decided.** Round 2 accepted every remaining proposal as written, with two changes: item 7 has **no cap** (limbs are procedural), and extreme ball volume is a supported play style (see `docs/game-design.md`, Ball types). Domain: `hityourshot.app`. This file stays as the record of the reasoning; new open items get a new numbered entry.
 
 ---
 
 ## 1. Round length
+
+**Decided 2026-11-15 (round 2): as proposed.**
 
 **Proposal:** 10 seconds, fixed, as a number in `balance.json`. Measure, then test 8 and 12 with the simulator and on the phone.
 
@@ -17,6 +19,8 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`. Decisio
 **Cost:** none; it is one number. **If no:** any value between 8 and 15 works with the same code.
 
 ## 2. Sport list and order
+
+**Decided 2026-11-15 (round 2): as proposed.**
 
 **Proposal:** basketball first, football second, golf third.
 
@@ -46,6 +50,8 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`. Decisio
 
 ## 5. A reason to replay finished sports
 
+**Decided 2026-11-15 (round 2): as proposed.**
+
 **Proposal:** a **mastery bonus**: each sport that has every upgrade card maxed gives +10% income in every sport, permanently. Plus Trophies (item 3) keep accruing from best-round records in old sports.
 
 **Why:** cheap to build, easy to understand, and it makes the old sport a tool rather than a graveyard. It also gives the end of a sport a definition ("maxed"), which the design currently lacks.
@@ -54,7 +60,7 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`. Decisio
 
 ## 6. Hard mode with obstacles
 
-**Decided 2026-11-15: hard mode exists as a separate mode and obstacles live only there. Not in version 1.** Still open: unlock condition and reward multiple.
+**Decided 2026-11-15: hard mode exists as a separate mode and obstacles live only there. Not in version 1.** Round 2: unlock at mastery, ×3 income, as proposed.
 
 **Proposal:** **not in version 1.** Note it for the second version as a "Pro" variant per sport: moving defenders or wind, ×3 income, unlocked at mastery.
 
@@ -64,6 +70,8 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`. Decisio
 
 ## 7. Maximum number of limbs (arms, or feet in football)
 
+**Decided 2026-11-15 (round 2): no cap. The owner overruled the proposal below.** Limbs are procedural: a placement algorithm attaches limb *n* at a position computed from *n* (shoulders and hips first, then along the torso and back, alternating sides, with small deterministic variation so it looks grown rather than stacked). No art per limb. The only limit is a soft performance cap in `balance.json`, raised when the phone proves it. The gag rules in `docs/design-rules.md` section 8 (fold on arrival, one gesture from limb 5 on) still apply and are also procedural.
+
 **Proposal:** **design for 8, build 1 to 4 in version 1**, add 5 and 6 in the first update if testers ask what comes next.
 
 **Why:** the gag is strongest at 2, 3 and 4. Beyond 4, each arm is less of a surprise and more of a stat, which is why the design rules give arms 5 and up a one-off gesture before they start shooting. Eight is where the drawing stops reading on a phone. Also performance: 8 arms at high fire rate with 3 sports' worth of effects is the upper bound for a plain Skia scene.
@@ -71,6 +79,8 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`. Decisio
 **Cost:** four character drawings for version 1. **If no cap:** fine, but each arm past 8 needs art and the character silhouette breaks.
 
 ## 8. Limb spacing
+
+**Decided 2026-11-15 (round 2): as proposed, with a cap on the group's total span so many limbs squeeze together instead of shooting off-screen.**
 
 **Proposal:** spacing is a **fraction of the target width**, per sport, in `balance.json`: 0.35 × target width. All arms shoot parallel to the aim line (approved); the group is centered on the line.
 
@@ -89,6 +99,8 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`. Decisio
 **Cost:** two lines in the scene and one function. **If no:** players will buy accuracy on faith and eventually feel cheated by misses.
 
 ## 10. Ball comparison
+
+**Decided 2026-11-15 (round 2): as proposed.**
 
 **Proposal:** under each ball in the shop, one line: **"about $X per round"**, computed from the player's current fire rate, accuracy, arms, the ball's weight penalties and value, over a round of the current length. Deterministic (no randomness), rounded, refreshed when anything changes.
 
@@ -113,7 +125,7 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`. Decisio
 
 ## 12. Monetization
 
-**Decided 2026-11-15 with the version 1 scope: the placements below, no interstitials.** Still open: the remove-ads price, the ×2 cooldown, and whether interstitials ever come.
+**Decided 2026-11-15 with the version 1 scope: the placements below, no interstitials.** Round 2: remove-ads around $2.99, ×2 every third round at most, as proposed. Interstitials: not before day-7 data exists.
 
 **Proposal for version 1:**
 
@@ -180,7 +192,7 @@ Performance plan: the scene is one Skia canvas; ball positions live in shared va
 
 ## 15. Name check
 
-**Decided 2026-11-15: the name is final, "Hit Your Shot: Idle Sports". Domain `.app` or `.io`; both did not resolve on 2026-11-15 and look free, to be confirmed at a registrar.** The checks below remain to do before the first TestFlight build.
+**Decided 2026-11-15: the name is final, "Hit Your Shot: Idle Sports". Domain: `hityourshot.app` (round 2); it did not resolve on 2026-11-15 and looks free, to be confirmed at a registrar.** The checks below remain to do before the first TestFlight build.
 
 **Findings (2026-11-15, web search and DNS only, not exhaustive):**
 
@@ -192,6 +204,8 @@ Performance plan: the scene is one Skia canvas; ball positions live in shared va
 **Proposal:** keep the name as the working title. Before the first TestFlight build: check the exact name in App Store Connect, search the USPTO and EUIPO trademark databases for "Hit Your Shot" in class 9 and 41, check the two handles, and register `hityourshot.app` if free. Have one fallback name ready; the subtitle "Idle Sports" can stay with any main name.
 
 ## 16. Store marketing and the arm surprise
+
+**Decided 2026-11-15 (round 2): as proposed. Video ads may show the reveal after launch.**
 
 **Proposal:** the icon, the name, the subtitle and the first three screenshots never show more than one arm. Screenshot four or five may show a silhouette with a "?" if the owner likes. Short-form video ads are a separate decision for after launch; they may show the reveal, because an ad has to show the one thing nobody has seen.
 
