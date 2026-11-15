@@ -32,3 +32,12 @@ Owner decisions and the reasons, newest first. When an item is decided it also m
 - **Name protection.** Once the game is in the stores, the domain is the first thing a copycat registers.
 - **Later:** universal links (open the app from a shared link), a one-page site for videos, and a press page. All need the domain to exist first.
 - Cost: roughly $15 to $20 a year for `.app` (always HTTPS, enforced by the registry, which the stores like).
+
+## 2026-11-15, lead decisions while building (owner may overrule)
+
+| Decision | Reason / note |
+|---|---|
+| Hoop window widened: ball radius 0.09 m (foam 0.9×, regulation 1.0×, medicine 1.1×), hoop half width 0.26 m, muzzle spacing 0.08 × target width, group span at most 0.10 × field width. | With the first numbers only the center limbs could ever score at perfect aim, so accuracy was worthless and extra limbs added nothing. Found by the simulator. |
+| The income estimate aims each sample where the target will be (tracking) and uses 64 samples. | With a fixed aim at the mean position, the estimate credited misses to the target motion instead of the spread; with 24 samples it was ±50% at low hit rates. |
+| Upgrade effects per level: accuracy ×0.8 spread, fire rate +8%, income +15%; costs 12 × 1.25 to 1.3^level; characters 15000 × 5.5^(n−2); balls 0 / 500 / 6000; Trophies every 5 levels; football at 19 Trophies, golf at 45. | First simulator pass against the pacing targets in `docs/analysis.md`. See `docs/pacing-report.md`. |
+| The greedy bot's quiet-stretch target is reported but not asserted in CI. | The bot saves every coin for the next limb; a player buys small things meanwhile. |
