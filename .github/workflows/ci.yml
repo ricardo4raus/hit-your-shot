@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Private data scan
+        run: bash tools/check-private-data.sh
+
+      - name: Markdown lint
+        run: npx --yes markdownlint-cli2@0.17.2 "**/*.md" "#node_modules"
+
+      # The steps below only run once the Expo project exists (package.json at the repo root).
+      - name: Detect app
+        id: app
+        run: |
+          if [ -f package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Install
+        if: steps.app.outputs.present == 'true'
+        run: npm ci
+
+      - name: Typecheck
+        if: steps.app.outputs.present == 'true'
+        run: npm run typecheck
+
+      - name: Test
+        if: steps.app.outputs.present == 'true'
+        run: npm test -- --ci
