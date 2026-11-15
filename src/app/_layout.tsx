@@ -8,6 +8,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { colors } from '@/ui/theme';
+
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 /** Keys match `font.family` in the theme. */
@@ -27,7 +29,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#C9DCE8' } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.sky } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
       </Stack>
