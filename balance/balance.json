@@ -62,7 +62,7 @@
         "kind": "hoop",
         "center": { "x": 8.0, "y": 3.05 },
         "halfWidth": 0.23,
-        "motion": { "axis": "x", "amplitude": 1.2, "periodSec": 4.5 },
+        "motion": { "axis": "x", "amplitude": 1.0, "periodSec": 4.5 },
         "backboard": { "dx": 0.38, "yFrom": -0.15, "yTo": 0.95 },
         "rimRadius": 0.025
       },
@@ -76,8 +76,8 @@
       },
       "balls": [
         { "id": "foam", "name": "Foam ball", "cost": 0, "value": 1, "accuracyPenaltyDeg": 0, "fireRateMult": 1.35, "launchSpeed": 9.2, "radiusMult": 0.9 },
-        { "id": "regulation", "name": "Regulation", "cost": 250, "value": 4, "accuracyPenaltyDeg": 2.5, "fireRateMult": 1.0, "launchSpeed": 8.8, "radiusMult": 1.0 },
-        { "id": "medicine", "name": "Medicine ball", "cost": 2400, "value": 18, "accuracyPenaltyDeg": 7, "fireRateMult": 0.55, "launchSpeed": 8.0, "radiusMult": 1.15 }
+        { "id": "regulation", "name": "Regulation", "cost": 250, "value": 4, "accuracyPenaltyDeg": 2.5, "fireRateMult": 1.0, "launchSpeed": 9.2, "radiusMult": 1.0 },
+        { "id": "medicine", "name": "Medicine ball", "cost": 2400, "value": 18, "accuracyPenaltyDeg": 7, "fireRateMult": 0.55, "launchSpeed": 9.4, "radiusMult": 1.15 }
       ]
     },
     "football": {
