@@ -19,28 +19,57 @@
  * May import only: ./types, ./balance, ./state.
  */
 import type { Balance, BallDef } from './balance';
-import type { ActionResult, GameState, SportState, UpgradeId } from './types';
+import { currentSport, withSport } from './state';
+import { fail, succeed, UPGRADE_IDS, type ActionResult, type GameEvent, type GameState, type SportState, type UpgradeId } from './types';
 
-export function upgradeCost(_balance: Balance, _id: UpgradeId, _level: number): number {
-  throw new Error('not implemented');
+/** Price of the next level of a card when the player currently holds `level`. */
+export function upgradeCost(balance: Balance, id: UpgradeId, level: number): number {
+  const card = balance.upgrades[id];
+  return Math.round(card.baseCost * Math.pow(card.costGrowth, level));
 }
 
-export function spreadDeg(_balance: Balance, _accuracyLevel: number, _ball: BallDef): number {
-  throw new Error('not implemented');
+/** Total spread of the aiming cone in degrees: the accuracy card narrows it, the ball widens it. */
+export function spreadDeg(balance: Balance, accuracyLevel: number, ball: BallDef): number {
+  const card = balance.upgrades.accuracy;
+  const fromUpgrade = Math.max(card.minSpreadDeg, card.baseSpreadDeg * Math.pow(card.spreadDecay, accuracyLevel));
+  return fromUpgrade + ball.accuracyPenaltyDeg;
 }
 
-export function shotsPerSec(_balance: Balance, _fireRateLevel: number, _ball: BallDef): number {
-  throw new Error('not implemented');
+/** Shots per second of one limb: the fire-rate card speeds it up, heavier balls slow it down. */
+export function shotsPerSec(balance: Balance, fireRateLevel: number, ball: BallDef): number {
+  const card = balance.upgrades.fireRate;
+  return card.baseShotsPerSec * (1 + card.perLevel * fireRateLevel) * ball.fireRateMult;
 }
 
-export function incomeMult(_balance: Balance, _incomeLevel: number): number {
-  throw new Error('not implemented');
+/** Income multiplier of the income card. */
+export function incomeMult(balance: Balance, incomeLevel: number): number {
+  return 1 + balance.upgrades.income.perLevel * incomeLevel;
 }
 
-export function isMastered(_balance: Balance, _sport: SportState): boolean {
-  throw new Error('not implemented');
+/** True when every card of the sport is at max level. */
+export function isMastered(balance: Balance, sport: SportState): boolean {
+  const max = balance.upgrades.maxLevel;
+  return UPGRADE_IDS.every((id) => sport.upgrades[id] >= max);
 }
 
-export function buyUpgrade(_state: GameState, _balance: Balance, _id: UpgradeId): ActionResult {
-  throw new Error('not implemented');
+/** Buys one level of a card in the current sport. */
+export function buyUpgrade(state: GameState, balance: Balance, id: UpgradeId): ActionResult {
+  const sportId = state.currentSport;
+  const sport = currentSport(state);
+  const level = sport.upgrades[id];
+  if (level >= balance.upgrades.maxLevel) return fail(state, 'max_level');
+  const cost = upgradeCost(balance, id, level);
+  if (cost > sport.money) return fail(state, 'not_enough_money');
+
+  const next: SportState = {
+    ...sport,
+    money: sport.money - cost,
+    upgrades: { ...sport.upgrades, [id]: level + 1 },
+  };
+  const events: GameEvent[] = [{ type: 'upgradeBought', sport: sportId, id, level: level + 1 }];
+  if (!sport.mastered && isMastered(balance, next)) {
+    next.mastered = true;
+    events.push({ type: 'mastered', sport: sportId });
+  }
+  return succeed(withSport(state, sportId, next), events);
 }
