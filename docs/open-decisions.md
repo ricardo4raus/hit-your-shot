@@ -2,7 +2,9 @@
 
 One entry per open item in Part 2 of `docs/game-design.md`. Each entry has a proposal, the reason, what it costs, and what happens if the owner says no. **Nothing here is built until the owner decides.** When an item is decided, the decision moves into Part 1 of the game design with the date, and the entry here is marked "Decided".
 
-Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`.
+Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`. Decisions are logged in `docs/decisions.md`.
+
+**Status after the owner's decisions of 2026-11-15:** decided: 3, 4, 9, 11 (offline part), 12 (version 1 placements), 13, 14, 15 (name), 17, 18, and the mode in 6. Still open: 1, 2 (order after basketball), 5, 6 (details), 7, 8, 10, 12 (prices and caps), 16 (video ads), and the domain choice.
 
 ---
 
@@ -24,6 +26,8 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`.
 
 ## 3. How a new sport is paid for
 
+**Decided 2026-11-15: Trophies, as proposed.**
+
 **Proposal:** a small global currency, **Trophies**, earned in every sport at fixed milestones: each time an upgrade card reaches a new tier (every 5 levels), each new ball, each new best round above a threshold. A new sport costs Trophies. Trophies buy nothing else in version 1.
 
 **Why:** per-sport money is approved, so there must be a bridge to the next sport, and it should reward *doing well in the current sport*, not grinding money. Trophies also give old sports a job later (item 5). Keeping Trophies to one use prevents the "four currencies" feeling the casual player hates.
@@ -32,7 +36,9 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`.
 
 ## 4. Global or per sport
 
-**Proposal:** **characters are global**, money, upgrades and balls are **per sport**.
+**Decided 2026-11-15: characters are per sport** (the owner overruled the proposal below). Each sport has its own limb line, arms or feet, so a character cannot carry over anyway. Consequence to design around: every new sport starts at one limb; the Trophy unlock and the first rounds in a new sport should feel like a new joke, not a demotion. The proposal is kept for the record.
+
+**Proposal (not taken):** **characters are global**, money, upgrades and balls are **per sport**.
 
 **Why:** the fresh start of a new sport is good (new upgrades to buy, new ball to meet) as long as the player does not feel demoted. Arriving in football with the 3-arm character makes the new sport start fast and shows the arms in a new context (a wide goal). Balls stay per sport because a golf ball is not a basketball; the weight tiers are the same idea, but the objects are different and that is part of the fun.
 
@@ -48,13 +54,15 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`.
 
 ## 6. Hard mode with obstacles
 
+**Decided 2026-11-15: hard mode exists as a separate mode and obstacles live only there. Not in version 1.** Still open: unlock condition and reward multiple.
+
 **Proposal:** **not in version 1.** Note it for the second version as a "Pro" variant per sport: moving defenders or wind, ×3 income, unlocked at mastery.
 
 **Why:** the normal loop needs to prove itself first, and obstacles are a second physics problem and a second balancing problem. As a post-mastery mode it also solves item 5 more strongly than a flat bonus.
 
 **Cost now:** zero. **If yes now:** version 1 grows by roughly a third.
 
-## 7. Maximum number of arms
+## 7. Maximum number of limbs (arms, or feet in football)
 
 **Proposal:** **design for 8, build 1 to 4 in version 1**, add 5 and 6 in the first update if testers ask what comes next.
 
@@ -62,7 +70,7 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`.
 
 **Cost:** four character drawings for version 1. **If no cap:** fine, but each arm past 8 needs art and the character silhouette breaks.
 
-## 8. Arm spacing
+## 8. Limb spacing
 
 **Proposal:** spacing is a **fraction of the target width**, per sport, in `balance.json`: 0.35 × target width. All arms shoot parallel to the aim line (approved); the group is centered on the line.
 
@@ -71,6 +79,8 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`.
 **Cost:** one number per sport. **If no:** a fixed spacing needs a per-sport exception anyway.
 
 ## 9. Accuracy visual
+
+**Decided 2026-11-15 with the version 1 scope: spread cone.**
 
 **Proposal:** a **spread cone** drawn around the aiming line: two faint lines fanning out from the hand, the angle set by the accuracy level and the ball weight. Each level visibly narrows it. The pips under the card show the level; the cone shows the effect.
 
@@ -88,6 +98,8 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`.
 
 ## 11. Extra features (combos, special balls, prestige, offline earnings)
 
+**Decided 2026-11-15: small capped offline earnings in version 1.** Combos, special balls and prestige stay out of version 1 as proposed.
+
 **Proposal:**
 
 - **Offline earnings: yes, small, in version 1.** A trickle equal to a fraction of the last round's income per minute away, capped at 2 hours, shown on return with an optional rewarded "double". Because the name says idle.
@@ -100,6 +112,8 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`.
 **Cost:** offline earnings are a small module; `neural-tycoon` has a tested version of exactly this (`src/engine/offline.ts`) that can be shared. **If no offline earnings:** consider dropping "Idle" from the subtitle.
 
 ## 12. Monetization
+
+**Decided 2026-11-15 with the version 1 scope: the placements below, no interstitials.** Still open: the remove-ads price, the ×2 cooldown, and whether interstitials ever come.
 
 **Proposal for version 1:**
 
@@ -114,6 +128,8 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`.
 **Cost:** the ads and purchase services behind interfaces, with fakes for Expo Go (the `neural-tycoon` pattern). **If the owner wants interstitials:** not before round 10 of a session, never in the first session, with a frequency cap in `balance.json`.
 
 ## 13. Version 1 scope
+
+**Decided 2026-11-15, as proposed, with one addition from the owner: every sport starts with one limb of the kind the sport uses (one arm in basketball and golf, one foot in football).** The table is now Part 1 of the game design.
 
 **Proposal (confirming and extending the suggestion in Part 2):**
 
@@ -133,15 +149,38 @@ Written 2026-11-15. Background and benchmarks are in `docs/analysis.md`.
 
 ## 14. Technology
 
+**Decided 2026-11-15: Expo, Skia, Reanimated, Zustand, pure TypeScript engine, Jest, simulator. No physics library in version 1.** The owner asked why no physics library and what is best for iOS and mobile overall; the answer is below.
+
 **Proposal:** **Expo (same SDK line as `neural-tycoon`), React Native Skia for the scene, Reanimated for interface motion, Zustand store, a pure TypeScript engine for ballistics and economy, Jest tests, a pacing simulator.** No physics library.
 
-**Why:** the physics here is a ball on a parabola, a hit test against a target region, and a bounce or two. That is a few lines of math in a pure function, which also makes it testable and simulatable. Expo's own guidance for 2D game physics uses Matter.js with Skia and Reanimated; that is the escape hatch if bounces or obstacles ever need real collisions, and it fits the same stack. A game engine (Godot, Unity) would give better physics tooling at the cost of a second language, no shared code with the other apps, and iOS builds that need a Mac or a paid service. The stack is already proven in this portfolio: cloud iOS builds from Windows, Expo Go for daily testing, the engine-and-simulator pattern.
+### Why no physics library
 
-Performance plan: the scene is one Skia canvas; ball positions live in shared values updated by one frame callback; React renders only the interface. Pooled ball objects, capped particle counts. Target devices: iPhone 11 and a mid-range Android from 2021.
+A physics library (Matter.js, Planck.js, Box2D, Rapier) simulates a world step by step: every frame it moves every body a little, checks every pair for contact, and resolves it. That is the right tool when the outcome is *unknown until it happens*: stacks of crates, ragdolls, a ball pinballing through twenty obstacles. It is the wrong tool here, for four reasons.
+
+1. **Our outcome is decided at the moment of the shot.** Aim angle, a spread roll, ball weight, limb offset and the target's position at impact time give a landing point and a hit or miss. That is one closed-form parabola and one rectangle test, about thirty lines, computed instantly. The animation afterwards only *shows* a result the engine already knows. This is what makes the game simulatable: the pacing simulator can run ten thousand rounds in under a second with no frames at all. A stepped physics world needs the frames, so simulating an hour of play takes an hour, or a fragile fast-forward.
+2. **Determinism and tests.** The engine rule in this portfolio is: same input, same output, time and randomness passed in. A closed-form shot is trivially deterministic, so a save can replay its rolls and a Jest test can assert "accuracy 5, medicine ball, aim 42°: hits 61 of 100". Stepped engines are deterministic only if the step size, the order of bodies and the floating-point path never change; across a JS thread, a UI-thread worklet and a Node test runner they do change.
+3. **Cost on the phone.** Matter.js runs on the JavaScript thread, next to React. With four limbs at a high fire rate there can be forty balls in flight plus particles; a broad-phase collision pass per frame for forty bodies is affordable, but it competes with everything else on that thread and it is the first thing to stutter on a mid-range Android. Our shots cost nothing per frame: each ball is `position(t)`, evaluated in a Skia draw callback on the UI thread.
+4. **What we would use it for is cosmetic.** Rim bounces, a ball rolling off the green, a kick that hits the post: these are reflections of a velocity vector against a line, with damping. One helper function. Players will not notice the difference between that and a rigid-body solver, and the result still has to agree with the hit or miss the engine already decided, which is awkward when a real solver is in charge.
+
+**The escape hatch.** Hard mode with obstacles (decided, later version) is where real collisions may be wanted. The plan is to add **Matter.js** then, confined to hard mode, because Expo documents exactly this combination (Matter.js + Skia + Reanimated) and it is pure JavaScript, so it runs under Hermes without native code. **Planck.js** (a Box2D port in pure JavaScript) is the alternative if Matter.js's accuracy proves too loose. Box2D-WASM and Rapier are out: Hermes has no WebAssembly, and they would need a native module.
+
+### What is best for iOS and mobile overall
+
+For rendering and feel on iOS, the stack that works best in Expo today is also the one chosen:
+
+- **React Native Skia** draws on the GPU through the same engine Chrome and Flutter use, and it draws from the UI thread when its values come from Reanimated shared values, so the scene stays smooth while React is busy. It supports 120 Hz on ProMotion iPhones.
+- **Reanimated 4 worklets** run per-frame logic (ball positions, cone angle) off the JavaScript thread. Rule: React renders the interface, never the balls.
+- **Expo Haptics, Expo Audio, Expo Router** are the native-feeling versions of feedback, sound and navigation, and they work in Expo Go for phase 1.
+- **No WebView, no game-in-a-browser.** A Phaser or PixiJS game inside a WebView is the quickest way to get an engine, and the quickest way to feel like a web page on iOS (input lag, no native haptics, memory pressure).
+- **A native game engine (Unity, Godot)** is the best choice for games that *are* physics or 3D. For a 2D upgrade game with one scene, it costs a second language, breaks code sharing with the portfolio, and needs a Mac or a paid cloud service for iOS builds, which the owner does not have.
+
+Performance plan: the scene is one Skia canvas; ball positions live in shared values updated by one frame callback; React renders only the interface. Pooled ball objects, capped particle counts. Target devices: iPhone 11 and a mid-range Android from 2021. Measure on the owner's iPhone with the performance monitor before adding any effect.
 
 **Cost:** zero new learning. **If a game engine instead:** expect two to three times the setup time and a Mac requirement for iOS.
 
 ## 15. Name check
+
+**Decided 2026-11-15: the name is final, "Hit Your Shot: Idle Sports". Domain `.app` or `.io`; both did not resolve on 2026-11-15 and look free, to be confirmed at a registrar.** The checks below remain to do before the first TestFlight build.
 
 **Findings (2026-11-15, web search and DNS only, not exhaustive):**
 
@@ -162,6 +201,8 @@ Performance plan: the scene is one Skia canvas; ball positions live in shared va
 
 ## 17. New proposal: the target moves
 
+**Decided 2026-11-15: yes. Obstacles only in hard mode.**
+
 Not in Part 2, raised by the analysis. **Proposal:** every sport has a slow, visible motion in the target, in `balance.json`: the basket slides on a rail (period about 4 seconds, amplitude a third of the field), the golf hole sits on a slope that changes each round, the football goalkeeper (a cone on a stick) drifts. Version 1: the sliding basket only.
 
 **Why:** without motion the player finds the line once and never aims again, and the accuracy upgrade becomes a tax on randomness. With motion, aiming is a small decision every round, accuracy is slack against the motion, and heavy balls (slower arc) have a second cost. It is the single change with the largest effect on whether the core verb survives the first session.
@@ -169,6 +210,8 @@ Not in Part 2, raised by the analysis. **Proposal:** every sport has a slow, vis
 **Cost:** one moving rectangle and its parameters. **If no:** the game still works, but accuracy must then be shown as pure spread, and the aim line can be hidden after the first round because it does nothing.
 
 ## 18. New proposal: the round result moment
+
+**Decided 2026-11-15 with the version 1 scope.**
 
 Not in Part 2, raised by the analysis. **Proposal:** when a round ends, a panel slides up over the play field (not over the cards) with: money this round, hits of shots, a best-round marker, the commentator line, and a "Play again" button. The upgrade cards stay visible and pressable under it. A tap anywhere outside the panel or on "Play again" starts the next round; the first drag on the play field also starts it.
 
