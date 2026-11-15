@@ -24,34 +24,150 @@
  *   shot input carries the right spread, offset and value, settle updates every counter and emits in order, ×2 doubles value.
  *
  * May import: ./types, ./balance, ./state, ./rng, ./ballistics (targetPose only), ./limbs, ./upgrades, ./trophies.
+ *
+ * Implementation notes (decisions where the rules above were open):
+ * - A limb whose ball id is not in the sport's ball list uses the sport's first ball, the same fallback as the resolver, so a bad save
+ *   never breaks the round loop. A limb with a rate that is not a positive finite number never fires.
+ * - dueShots picks the limb with the smallest nextFireAt each time (ties go to the lowest index), so when several limbs are behind the
+ *   oldest missed interval of any limb is served first. A fire time is only served while it is strictly below round.seconds; a limb
+ *   whose next fire time is at or past the end stays where it is.
+ * - When nothing is due, dueShots returns the round object it was given unchanged (no allocation on an idle tick).
+ * - shotInputFor and dueShots use round.sport, not state.currentSport, so a round keeps its sport even if the state switched.
+ * - settleRound does not mark the round finished; the store keeps the settled round for the result panel and flags it itself.
  */
-import type { Balance, BallDef } from './balance';
-import type { ActionResult, GameState, Rng, RoundState, ShotInput, ShotResult, SportId } from './types';
+import { ballDefOf, type Balance, type BallDef } from './balance';
+import { muzzleOffsets } from './limbs';
+import { withSport } from './state';
+import { awardMilestones, masteryBonus } from './trophies';
+import { fail, succeed, type ActionResult, type GameEvent, type GameState, type Rng, type RoundState, type ShotInput, type ShotResult, type SportId, type SportState } from './types';
+import { incomeMult, shotsPerSec, spreadDeg } from './upgrades';
 
-export function createRound(_state: GameState, _balance: Balance, _now: number, _rng: Rng): RoundState {
-  throw new Error('not implemented');
+/** The ball a limb fires, falling back to the sport's first ball for an unknown id. Throws only when the sport has no balls at all. */
+function limbBall(balance: Balance, sportId: SportId, sport: SportState, limb: number): BallDef {
+  const id = sport.limbBalls[limb];
+  const def = id === undefined ? undefined : ballDefOf(balance, sportId, id);
+  const ball = def ?? balance.sports[sportId].balls[0];
+  if (ball === undefined) throw new Error('sport has no balls');
+  return ball;
 }
 
-export function limbRates(_state: GameState, _balance: Balance, _sportId: SportId): number[] {
-  throw new Error('not implemented');
+export function createRound(state: GameState, balance: Balance, now: number, rng: Rng): RoundState {
+  const sportId = state.currentSport;
+  const sport = state.sports[sportId];
+  const rates = limbRates(state, balance, sportId);
+  const limbs = Math.max(1, rates.length);
+  const nextFireAt = rates.map((rate, i) => (rate > 0 && Number.isFinite(rate) ? (i * (1 / rate)) / limbs : Number.POSITIVE_INFINITY));
+  return {
+    sport: sportId,
+    startedAt: now,
+    seconds: balance.roundSeconds,
+    targetPhase: rng() * 2 * Math.PI,
+    nextFireAt,
+    shots: 0,
+    hits: 0,
+    money: 0,
+    doubled: false,
+    finished: false,
+  };
 }
 
-export function dueShots(_round: RoundState, _state: GameState, _balance: Balance, _t: number): { round: RoundState; limbs: number[] } {
-  throw new Error('not implemented');
+export function limbRates(state: GameState, balance: Balance, sportId: SportId): number[] {
+  const sport = state.sports[sportId];
+  const level = sport.upgrades.fireRate;
+  const out: number[] = new Array(sport.limbs);
+  for (let i = 0; i < sport.limbs; i++) out[i] = shotsPerSec(balance, level, limbBall(balance, sportId, sport, i));
+  return out;
 }
 
-export function hitValue(_state: GameState, _balance: Balance, _sportId: SportId, _ball: BallDef, _doubled: boolean): number {
-  throw new Error('not implemented');
+export function dueShots(round: RoundState, state: GameState, balance: Balance, t: number): { round: RoundState; limbs: number[] } {
+  const limbs: number[] = [];
+  if (round.finished || !(t < round.seconds)) return { round, limbs };
+
+  const rates = limbRates(state, balance, round.sport);
+  const count = Math.min(rates.length, round.nextFireAt.length);
+  const cap = balance.physics.maxShotsPerTick;
+  const end = round.seconds;
+  let next: number[] | null = null;
+
+  while (limbs.length < cap) {
+    const times = next ?? round.nextFireAt;
+    let best = -1;
+    let bestAt = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < count; i++) {
+      const at = times[i];
+      if (at === undefined || !(at <= t) || !(at < end) || at >= bestAt) continue;
+      const rate = rates[i];
+      if (rate === undefined || !(rate > 0) || !Number.isFinite(rate)) continue;
+      best = i;
+      bestAt = at;
+    }
+    if (best < 0) break;
+    if (next === null) next = round.nextFireAt.slice();
+    limbs.push(best);
+    next[best] = bestAt + 1 / (rates[best] as number);
+  }
+
+  if (next === null) return { round, limbs };
+  return { round: { ...round, nextFireAt: next }, limbs };
 }
 
-export function shotInputFor(_state: GameState, _balance: Balance, _round: RoundState, _limb: number, _aim: number, _t: number): ShotInput {
-  throw new Error('not implemented');
+export function hitValue(state: GameState, balance: Balance, sportId: SportId, ball: BallDef, doubled: boolean): number {
+  const level = state.sports[sportId].upgrades.income;
+  return ball.value * incomeMult(balance, level) * masteryBonus(state, balance) * (doubled ? balance.ads.x2RoundMult : 1);
 }
 
-export function recordShot(_round: RoundState, _result: ShotResult): RoundState {
-  throw new Error('not implemented');
+export function shotInputFor(state: GameState, balance: Balance, round: RoundState, limb: number, aim: number, t: number): ShotInput {
+  const sportId = round.sport;
+  const sport = state.sports[sportId];
+  const def = balance.sports[sportId];
+  const ball = limbBall(balance, sportId, sport, limb);
+  const offset = muzzleOffsets(sport.limbs, def, balance)[limb] ?? 0;
+  return {
+    sport: sportId,
+    aim,
+    spreadDeg: spreadDeg(balance, sport.upgrades.accuracy, ball),
+    ballId: ball.id,
+    offset,
+    t,
+    targetPhase: round.targetPhase,
+    valueIfHit: hitValue(state, balance, sportId, ball, round.doubled),
+  };
 }
 
-export function settleRound(_state: GameState, _balance: Balance, _round: RoundState): ActionResult {
-  throw new Error('not implemented');
+export function recordShot(round: RoundState, result: ShotResult): RoundState {
+  return {
+    ...round,
+    shots: round.shots + 1,
+    hits: round.hits + (result.hit ? 1 : 0),
+    money: round.money + result.value,
+  };
+}
+
+export function settleRound(state: GameState, balance: Balance, round: RoundState): ActionResult {
+  if (round.finished) return fail(state, 'invalid');
+  const sportId = round.sport;
+  const sport = state.sports[sportId];
+  const newBest = round.money > sport.bestRound;
+
+  const nextSport: SportState = {
+    ...sport,
+    money: sport.money + round.money,
+    lastRoundMoney: round.money,
+    roundsPlayed: sport.roundsPlayed + 1,
+    lifetimeMoney: sport.lifetimeMoney + round.money,
+    shotsFired: sport.shotsFired + round.shots,
+    hits: sport.hits + round.hits,
+    bestRound: newBest ? round.money : sport.bestRound,
+  };
+  const settled: GameState = {
+    ...withSport(state, sportId, nextSport),
+    ads: { ...state.ads, roundsSinceX2: round.doubled ? 0 : state.ads.roundsSinceX2 + 1 },
+  };
+
+  const events: GameEvent[] = [{ type: 'roundEnded', sport: sportId, money: round.money, shots: round.shots, hits: round.hits, newBest }];
+  if (newBest) events.push({ type: 'newBest', sport: sportId, money: round.money });
+
+  const awarded = awardMilestones(settled, balance, sportId);
+  events.push(...awarded.events);
+  return succeed(awarded.state, events);
 }
