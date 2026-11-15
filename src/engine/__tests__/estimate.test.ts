@@ -32,7 +32,7 @@ describe('incomePerRoundEstimate', () => {
     const b = incomePerRoundEstimate(state, balance, 'basketball', null);
     expect(a).toBe(b);
     expect(Number.isInteger(a)).toBe(true);
-    expect(incomePerRoundEstimate(state, balance, 'basketball', null, { seed: 7, samples: 24 })).toBe(a);
+    expect(incomePerRoundEstimate(state, balance, 'basketball', null, { seed: 7, samples: 64 })).toBe(a);
   });
 
   it('is a whole, non-negative number for every ball of every sport', () => {

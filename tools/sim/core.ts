@@ -49,7 +49,10 @@ export interface BotOptions {
   estimateSamples: number;
 }
 
-export const DEFAULT_BOT: BotOptions = { skillDeg: 4, spendPauseSec: 4, rounds: 400, estimateSamples: 12 };
+export const DEFAULT_BOT: BotOptions = { skillDeg: 4, spendPauseSec: 4, rounds: 400, estimateSamples: 64 };
+
+/** The bot saves for an unaffordable option when its gain per cost beats the best affordable one by this factor. */
+const SAVE_FACTOR = 1.5;
 
 export interface Milestones {
   /** Play time in seconds (rounds plus spend pauses) when each thing first happened; null = never. */
@@ -121,7 +124,10 @@ function candidates(state: GameState, balance: Balance): Purchase[] {
   return out;
 }
 
-/** Buys greedily by estimated gain per cost. Returns the new state and what was bought. */
+/**
+ * Buys greedily by estimated gain per cost, and saves when something out of reach is clearly better than anything affordable
+ * (a player eyeing the next trainer does not spend every coin on a tiny upgrade). Returns the new state and what was bought.
+ */
 export function spend(state: GameState, balance: Balance, samples: number): { state: GameState; bought: Purchase[] } {
   const bought: Purchase[] = [];
   let s = state;
@@ -129,21 +135,25 @@ export function spend(state: GameState, balance: Balance, samples: number): { st
     const sportId = s.currentSport;
     const money = s.sports[sportId].money;
     const now = incomePerRoundEstimate(s, balance, sportId, null, { samples });
-    let best: { p: Purchase; score: number } | null = null;
+    let bestAffordable: { p: Purchase; score: number } | null = null;
+    let bestAny: { p: Purchase; score: number } | null = null;
     for (const p of candidates(s, balance)) {
       const cost = purchaseCost(s, balance, p);
-      if (!Number.isFinite(cost) || cost > money) continue;
+      if (!Number.isFinite(cost)) continue;
       const after = applyPurchase(cloneWithMoney(s, Infinity), balance, p);
       if (!after) continue;
       const gain = incomePerRoundEstimate(after, balance, sportId, null, { samples }) - now;
       const score = gain / Math.max(1, cost);
-      if (score > 0 && (!best || score > best.score)) best = { p, score };
+      if (score <= 0) continue;
+      if (!bestAny || score > bestAny.score) bestAny = { p, score };
+      if (cost <= money && (!bestAffordable || score > bestAffordable.score)) bestAffordable = { p, score };
     }
-    if (!best) break;
-    const next = applyPurchase(s, balance, best.p);
+    if (!bestAffordable) break;
+    if (bestAny && bestAny !== bestAffordable && bestAny.score > bestAffordable.score * SAVE_FACTOR) break;
+    const next = applyPurchase(s, balance, bestAffordable.p);
     if (!next) break;
     s = next;
-    bought.push(best.p);
+    bought.push(bestAffordable.p);
   }
   return { state: s, bought };
 }
@@ -221,7 +231,7 @@ export function simulateCampaign(balance: Balance, seed: number, options: Partia
     if (m.limbs3 === null && sport.limbs >= 3) m.limbs3 = time;
     if (m.limbs4 === null && sport.limbs >= 4) m.limbs4 = time;
     if (m.mastered === null && sport.mastered) m.mastered = time;
-    if (m.trophies10 === null && state.trophies >= 10) m.trophies10 = time;
+    if (m.trophies10 === null && state.trophies >= balance.sports.football.unlockTrophies) m.trophies10 = time;
     rounds.push({ index: i, timeSec: time, money: r.money, shots: r.shots, hits: r.hits, limbs: sport.limbs, ball: sport.limbBalls[0] ?? '', levels: { ...sport.upgrades } });
   }
   if (time <= 3600) longestQuiet = Math.max(longestQuiet, time - lastStepAt);

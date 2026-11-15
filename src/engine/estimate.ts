@@ -4,12 +4,12 @@
  *
  * Rules:
  * - incomePerRoundEstimate(state, balance, sportId, ballId, opts): Monte Carlo through the REAL resolver with a fixed seed
- *   (opts.seed, default 7) and opts.samples shots per limb (default 24): for each limb, the shot input as round.shotInputFor would build it
- *   (ballId null = the limb's own ball; otherwise that ball on every limb), aim = ballistics.solveAim at the target's average position
+ *   (opts.seed, default 7) and opts.samples shots per limb (default 64; fewer than about 48 is too noisy at low hit rates): for each limb, the shot input as round.shotInputFor would build it
+ *   (ballId null = the limb's own ball; otherwise that ball on every limb), aim per sample = ballistics.solveAim at the target's predicted position (tracking like a player)
  *   (phase 0, t = 0, 'high' arc for hoop, 'low' for goal and hole; if null, aim 45°), times spread evenly over the round. Hit rate per limb
  *   × shots per round per limb (shotsPerSec × roundSeconds) × hitValue (not doubled). Sum over limbs.
  * - Same inputs, same number. Rounded to a whole number.
- * - Cheap enough for the shop: with 24 samples and 8 limbs it must finish in well under 50 ms in Node.
+ * - Cheap enough for the shop: with 64 samples and 8 limbs it must finish in well under 50 ms in Node.
  * - Tests (src/engine/__tests__/estimate.test.ts): deterministic, increases with the income level, a ball with huge penalties estimates
  *   lower than the foam ball at level 0, zero when the ball id is unknown.
  *
@@ -38,7 +38,7 @@ export interface EstimateOptions {
   seed?: number;
 }
 
-const DEFAULT_SAMPLES = 24;
+const DEFAULT_SAMPLES = 64;
 const DEFAULT_SEED = 7;
 const FALLBACK_AIM = Math.PI / 4;
 
@@ -71,23 +71,28 @@ export function incomePerRoundEstimate(state: GameState, balance: Balance, sport
     finished: false,
   };
 
-  // The target's mean position: phase 0 at t = 0 puts every motion at its center.
-  const pose = targetPose(def, 0, 0);
+  // The estimate plays like a player who tracks the target: each sample aims where the target will be when the ball arrives,
+  // predicted with the flight time of the mean shot. Phase 0 keeps the motion centered at t = 0.
   const arc: Arc = def.target.kind === 'hoop' ? 'high' : 'low';
-  const dx = pose.center.x - def.field.origin.x;
-  const dy = pose.center.y - def.field.origin.y;
   const gravity = balance.physics.gravity;
+  const meanPose = targetPose(def, 0, 0);
+  const meanDx = meanPose.center.x - def.field.origin.x;
+  const meanDy = meanPose.center.y - def.field.origin.y;
 
   const rng = createRng(seed);
   let total = 0;
   for (let limb = 0; limb < sport.limbs; limb++) {
     const ball = ballDefOf(balance, sportId, sport.limbBalls[limb] ?? '') ?? def.balls[0];
     if (ball === undefined) continue;
-    const aim = solveAim(ball.launchSpeed, gravity, dx, dy, arc) ?? FALLBACK_AIM;
+    const meanAim = solveAim(ball.launchSpeed, gravity, meanDx, meanDy, arc) ?? FALLBACK_AIM;
+    const vx = ball.launchSpeed * Math.cos(meanAim);
+    const flight = vx > 0.01 ? meanDx / vx : 0;
 
     let hits = 0;
     for (let k = 0; k < samples; k++) {
       const t = (k * balance.roundSeconds) / samples;
+      const pose = targetPose(def, t + flight, 0);
+      const aim = solveAim(ball.launchSpeed, gravity, pose.center.x - def.field.origin.x, pose.center.y - def.field.origin.y, arc) ?? meanAim;
       const input = shotInputFor(estimated, balance, round, limb, aim, t);
       if (resolveShot(input, rng, balance).hit) hits++;
     }

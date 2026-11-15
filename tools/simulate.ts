@@ -44,7 +44,7 @@ lines.push('## Targets (median over seeds)');
 lines.push('');
 lines.push(row(['Target', 'Result', 'Wanted', 'Met']));
 lines.push(row(['---', '---', '---', '---']));
-for (const t of evaluateTargets(campaigns)) lines.push(row([t.name, t.result, t.target, t.ok ? 'yes' : 'NO']));
+for (const t of evaluateTargets(campaigns, balance)) lines.push(row([t.name, t.result, t.target, t.ok ? 'yes' : 'NO']));
 lines.push('');
 lines.push('## Milestones (median play time)');
 lines.push('');
