@@ -58,7 +58,7 @@
     "maxSpanFraction": 0.1
   },
   "trophies": {
-    "upgradeTierEvery": 10,
+    "upgradeTierEvery": 5,
     "perUpgradeTier": 1,
     "perNewBall": 1,
     "perBestRoundDecade": 1,
@@ -158,7 +158,7 @@
     "football": {
       "name": "Football",
       "limb": "foot",
-      "unlockTrophies": 10,
+      "unlockTrophies": 25,
       "field": {
         "width": 12,
         "height": 6,
@@ -227,7 +227,7 @@
     "golf": {
       "name": "Golf",
       "limb": "arm",
-      "unlockTrophies": 30,
+      "unlockTrophies": 60,
       "field": {
         "width": 14,
         "height": 8,

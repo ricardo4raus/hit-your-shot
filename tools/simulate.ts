@@ -73,7 +73,6 @@ for (const i of [0, 1, 2, 4, 9, 19, 39, 59, 99, 149, 199, 299, 399]) {
     ]),
   );
 }
-lines.push('');
 
 const out = resolve(__dirname, '..', 'docs', 'pacing-report.md');
 writeFileSync(out, lines.join('\n') + '\n');

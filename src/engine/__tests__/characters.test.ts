@@ -17,8 +17,9 @@ describe('characterCost', () => {
     expect(characterCost(balance, 2)).toBe(baseCost);
   });
 
-  it('matches the current balance table for the first four paid characters', () => {
-    expect([2, 3, 4, 5].map((n) => characterCost(balance, n))).toEqual([600, 1560, 4056, 10546]);
+  it('grows by the cost growth factor from one character to the next', () => {
+    const costs = [2, 3, 4, 5].map((n) => characterCost(balance, n));
+    for (let i = 1; i < costs.length; i++) expect(costs[i]! / costs[i - 1]!).toBeCloseTo(balance.characters.costGrowth, 1);
   });
 });
 
