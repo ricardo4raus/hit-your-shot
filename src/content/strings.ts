@@ -1,0 +1,45 @@
+/** Every label on screen (docs/design-rules.md section 10: nouns and verbs, no adjectives). */
+export const strings = {
+  upgrades: {
+    accuracy: 'Accuracy',
+    fireRate: 'Fire rate',
+    income: 'Income',
+    upgrade: 'Upgrade',
+    max: 'Max',
+  },
+  round: {
+    dragToAim: 'DRAG TO AIM',
+    playAgain: 'Play again',
+    hits: (hits: number, shots: number) => `${hits} of ${shots}`,
+    best: 'Best',
+    newTag: 'NEW!',
+    x2: '×2 this round',
+    x2Watch: 'Watch',
+  },
+  shop: {
+    title: 'Shop',
+    balls: 'Balls',
+    characters: 'Trainers',
+    perRound: (money: string) => `about ${money} per round`,
+    useOnAll: 'Use on all',
+    owned: 'Owned',
+    next: 'Next',
+    removeAds: 'Remove ads',
+    restore: 'Restore purchases',
+  },
+  offline: {
+    title: 'While you were away',
+    double: 'Double',
+    keep: 'Keep',
+  },
+  settings: {
+    title: 'Settings',
+    sound: 'Sound',
+    haptics: 'Haptics',
+    privacy: 'Privacy',
+    reset: 'Start over',
+    resetConfirm: 'This deletes every sport and every upgrade. There is no undo.',
+    cancel: 'Cancel',
+    confirmReset: 'Delete and start over',
+  },
+} as const;
