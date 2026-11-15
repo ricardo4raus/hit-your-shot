@@ -42,12 +42,23 @@ Delete branches after merging.
 
 ## Commands
 
-No code yet. When the Expo project lands, this section gets: install, start (Expo Go on the iPhone), test, typecheck, simulate. Until then:
-
 ```sh
-bash tools/check-private-data.sh                       # the same scan CI runs
+npm install                    # after cloning or when package.json changed
+npx expo start                 # dev server; scan the QR code with the iPhone camera (Expo Go); add --tunnel if the Wi-Fi blocks it
+npm test                       # all Jest tests
+npm run typecheck              # TypeScript
+npm run simulate               # pacing report on the real engine (once tools/simulate.ts exists)
+npx expo install <package>     # ALWAYS this instead of npm install for app packages
+bash tools/check-private-data.sh                              # the same scan CI runs
 npx --yes markdownlint-cli2@0.17.2 "**/*.md" "#node_modules"   # the same lint CI runs
 ```
+
+## Agent worktrees
+
+Module agents work in `.claude/worktrees/<name>` on branch `agent/<name>`. Do not reinstall packages there; link them:
+`cmd //c "mklink /J node_modules C:\MobileApps\hit-your-shot\node_modules"`. The junction must stay untracked, so agents add explicit paths
+and never run `git add -A`. Set the noreply identity in each worktree (`git config user.name`, `git config user.email`). Remove the junction
+with `cmd /c rmdir node_modules` before deleting a worktree, or the shared packages go with it.
 
 ## Where things go
 
