@@ -158,7 +158,7 @@
     "football": {
       "name": "Football",
       "limb": "foot",
-      "unlockTrophies": 25,
+      "unlockTrophies": 19,
       "field": {
         "width": 12,
         "height": 6,
@@ -227,7 +227,7 @@
     "golf": {
       "name": "Golf",
       "limb": "arm",
-      "unlockTrophies": 60,
+      "unlockTrophies": 45,
       "field": {
         "width": 14,
         "height": 8,
