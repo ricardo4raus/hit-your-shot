@@ -15,6 +15,9 @@ Where the project stands and what comes next. Updated 2026-11-16.
 - Simulator (`npm run simulate`): a bot on the real engine with the yaw aim, pacing report, pacing test in CI. Balance tuned on the
   third-person engine (2026-11-16): first upgrade after round 1, ball swap at 4 min, second limb at 15 min, third at 26 min, second
   sport at 66 min. See `docs/pacing-report.md`.
+- Screenshot tool (`npm run screenshot`): exports the web build, opens it in headless Chrome at phone size and writes PNGs of idle,
+  aiming, the first shots, mid-round and the result. The lead now sees the game before the owner does. The web build runs the real app
+  (CanvasKit for Skia, localStorage for the save).
 - Phone tests: 2026-11-15 (aiming and shooting work; balls were invisible, fixed), 2026-11-16 morning (balls visible; the owner asked
   for the third-person view and the new round flow, both built the same day), 2026-11-16 afternoon (third-person works; basket too hard
   to hit, aim line wanted as the flight arc; both done).

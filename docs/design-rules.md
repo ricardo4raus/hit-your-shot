@@ -89,12 +89,12 @@ Rules:
 
 - Portrait only. Design at 375 × 812 pt and check at 360 × 740 (small Android) and 430 × 932 (large iPhone).
 - Grid: 16 pt gutter, 8 pt base unit, 12 pt between cards. Touch targets at least 48 × 48 pt.
-- The play field fills the **whole screen**, seen **from behind the character** (owner decision 2026-11-16, like the first reference). The character stands in the lower middle with its back to the player and takes about 60% of the height; its legs run under the cards. The target is ahead, small, slightly above the middle. The camera never moves. (The side view with the character left of center was the first build and is gone.)
+- The play field fills the **whole screen**, seen **from behind the character** (owner decision 2026-11-16, like the first reference). The camera stands behind the character's right shoulder and looks at the target: the target sits on the screen's center line, the character stands **left of center** with its back to the player and takes a little under half the height, its legs run under the cards. From dead behind, the shooting hand hid behind the head and the ball's arc was a vertical line; the shoulder view (first screenshots, 2026-11-16) shows both. The camera never moves. Numbers in `src/features/play/camera.ts`.
 - Money sits top center in a `paper` pill with an `ink` outline. Nothing else is in the top bar during a round. Settings is a small ghost button top right.
 - The upgrade cards sit over the bottom 30%: three cards, equal width, each with name, icon, pips, and one button that shows the price. **The cards exist only between rounds** (owner decision 2026-11-16): they slide away when a round starts and come back when it ends. Buying happens only between rounds (owner decision 2026-11-15); the buttons stay disabled during a round as a second guard. The button is `paper2` and flat when unaffordable, and filled when it can be pressed.
 - Between rounds **one play button** stands centered above the cards. After a round the money it made stands over the button in display lettering, "NEW!" beside it on a best round, the commentator's line under it. **No panel, no card** (owner decision 2026-11-16): the character stopping is the signal that the round is over.
 - Empty space is allowed and wanted. If a screen feels empty, that is the background's job to fix with haze, not the interface's job to fix with widgets.
-- Every screen has **one odd choice**: something off-grid, oversized or tilted that a template would not do. On the play screen it is the scale: a huge back in the foreground and a small basket far away, with the round's money tilted 4 degrees over the button. The "NEW!" tag hangs crooked beside it. One per screen, never three.
+- Every screen has **one odd choice**: something off-grid, oversized or tilted that a template would not do. On the play screen it is the character cut by the left edge and the bottom, a big back in the foreground against a small basket, with the round's money tilted 4 degrees over the button. The "NEW!" tag hangs crooked beside it. One per screen, never three.
 
 **Why:** generated layouts center everything and fill every gap, because that is the average of all layouts. This screen does center its button, because the owner wants the thumb to find it without looking, and the camera behind the character makes the center the natural line of play. So the deliberate choice moved from position to scale. The "one odd choice" rule forces a decision on every screen; a decision is exactly what slop lacks.
 
@@ -208,7 +208,7 @@ Banned words and patterns anywhere in the game, store listing or marketing: epic
 
 ## 12. The "feels generated" checklist
 
-Run before any screenshot goes into a PR. The owner may run it too; it needs no design background, only honesty.
+Run before any screenshot goes into a PR (`npm run screenshot` makes them from the web build; `docs/dev-notes.md`). The owner may run it too; it needs no design background, only honesty.
 
 1. Cover the money and the cards. Is there one thing on screen your eye goes to? If two or none, fix the color.
 2. Is anything centered that does not have to be? Move it.

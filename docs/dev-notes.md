@@ -73,3 +73,14 @@ hit-your-shot/
 ```
 
 Shared code for all apps in the portfolio lives in `../_shared/` later; see `docs/shared-code.md` for the plan and the candidates.
+
+## Screenshots without a phone
+
+`npm run screenshot` exports the web build (`expo export --platform web`), serves it from a local port, opens it in a headless Google
+Chrome at 375 × 812 points and writes PNGs into `screenshots/` (ignored): idle, aimed, six frames of the first shots, mid-round, result.
+Copy the ones a PR needs into `docs/screenshots/` (committed, overwritten each time). Needs Chrome installed; pass `--chrome <path>` if it
+is not in the default place, `--skip-export` to reuse the last `dist/`.
+
+The web build is the real app: Skia draws through CanvasKit (the `.wasm` is copied into `public/`, ignored), the save uses
+`localStorage` (`src/services/stringStore.web.ts`), haptics and audio are no-ops. It exists for looking, not for shipping; the phone is
+the product.
