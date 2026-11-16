@@ -1,8 +1,8 @@
 /**
  * The play field, seen from behind the character (owner decision 2026-11-16): the character fills the lower middle of the screen with its
  * back to the player, the target sits ahead and smaller, balls fly into the picture. One Skia canvas: world, target, character with its
- * procedural limbs, the aim line (the arc a perfect ball flies, owner 2026-11-16) with the spread's edges beside it, every ball in flight
- * with a flat shadow under it. Ball positions are computed on
+ * procedural limbs posed by the rig every frame (rig.ts: knees, elbows, wrists, the shot cycle), the aim line (the arc a perfect ball
+ * flies, owner 2026-11-16) with the spread's edges beside it, every ball in flight with a flat shadow under it. Ball positions are computed on
  * the UI thread from the segments the engine produced (docs/architecture.md, "The round, live"); React never re-renders per frame.
  * Drag left or right anywhere on the field to aim: the finger's position over the target plane is the aim point. The round is started
  * by the play button (features/round/RoundControls.tsx), not by the drag.
@@ -13,12 +13,13 @@ import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useDerivedValue, useSharedValue } from 'react-native-reanimated';
 
-import { ballDefOf, launchPitch, limbAnchors, muzzleOffsets, spreadDeg, type ShotResult, type SportDef } from '@/engine';
+import { ballDefOf, launchPitch, limbAnchors, limbRates, muzzleOffsets, spreadDeg, type ShotResult, type SportDef } from '@/engine';
 import { balance, useGame } from '@/store/game';
 import { onShots } from '@/store/shotBus';
 import { border, colors, sportColors } from '@/ui/theme';
 
 import { flatRatio, makeCamera, scaleAt, screenX, screenY, worldZ, type Camera } from './camera';
+import { BODY_H, HEAD_R, TORSO_HALF, poseBody, tauFor, type ArmTiming, type Vec } from './rig';
 
 /** A ball on the UI thread: flat segment numbers [t0, t1, x, y, z, vx, vy, vz, gy] × n, plus when it stops being drawn. */
 interface BallRec {
@@ -33,10 +34,6 @@ const SEG = 9;
 const HEAD = 3;
 const MAX_BALLS = balance.physics.maxBallsInFlight;
 const MAX_YAW = (70 * Math.PI) / 180;
-/** The body is 1 unit tall in limbs.ts; this many meters on the field. */
-const BODY_H = 1.75;
-/** How far in front of the shoulder a hand (or foot) reaches when shooting, meters. */
-const REACH = 0.55;
 /** Balls nearer than this in front of the shot origin are drawn over the character. */
 const NEAR_DEPTH = 0.35;
 const TWO_PI = 2 * Math.PI;
@@ -58,6 +55,14 @@ export function PlayField({ width, height }: PlayFieldProps) {
   const roundStartedAt = useGame((s) => s.round?.startedAt ?? 0);
   const roundPhase = useGame((s) => s.round?.targetPhase ?? 0);
   const playing = useGame((s) => s.phase === 'playing');
+  // Each limb's shots per second and ball radius, as a string so the selector stays stable between purchases.
+  const scheduleKey = useGame((s) => {
+    const sport = s.state.sports[s.state.currentSport];
+    const def = balance.sports[s.state.currentSport];
+    const rates = limbRates(s.state, balance, s.state.currentSport);
+    const radii = sport.limbBalls.map((id) => (ballDefOf(balance, s.state.currentSport, id)?.radiusMult ?? 1) * def.ballRadius);
+    return `${rates.join(',')}|${radii.join(',')}`;
+  });
 
   const def = balance.sports[sportId];
   const palette = sportColors[sportId as keyof typeof sportColors];
@@ -73,6 +78,16 @@ export function PlayField({ width, height }: PlayFieldProps) {
   const spread = spreadDeg(balance, accuracy, ball);
   const offsets = useMemo(() => muzzleOffsets(limbs, def, balance), [limbs, def]);
   const anchors = useMemo(() => limbAnchors(limbs, def.limb), [limbs, def.limb]);
+  // The rig's schedule: when each limb first fires after the round start and how often, as createRound schedules them.
+  const schedule = useMemo(() => {
+    const [ratesPart, radiiPart] = scheduleKey.split('|');
+    const rates = (ratesPart ?? '').split(',').map(Number);
+    const radii = (radiiPart ?? '').split(',').map(Number);
+    const n = Math.max(1, rates.length);
+    const period = rates.map((r) => (r > 0 && Number.isFinite(r) ? 1 / r : Number.POSITIVE_INFINITY));
+    const first = period.map((p, i) => (Number.isFinite(p) ? (i * p) / n : Number.POSITIVE_INFINITY));
+    return { period, first, radii };
+  }, [scheduleKey]);
 
   // Shared values the UI thread reads every frame.
   const clock = useClock();
@@ -81,6 +96,8 @@ export function PlayField({ width, height }: PlayFieldProps) {
   const spreadSV = useSharedValue(spread);
   const phase = useSharedValue(0);
   const offsetsSV = useSharedValue<number[]>(offsets);
+  const scheduleSV = useSharedValue(schedule);
+  const roundSV = useSharedValue({ startMs: 0, playing: false });
 
   useEffect(() => {
     spreadSV.value = spread;
@@ -88,6 +105,12 @@ export function PlayField({ width, height }: PlayFieldProps) {
   useEffect(() => {
     offsetsSV.value = offsets;
   }, [offsets, offsetsSV]);
+  useEffect(() => {
+    scheduleSV.value = schedule;
+  }, [schedule, scheduleSV]);
+  useEffect(() => {
+    roundSV.value = { startMs: roundStartedAt, playing };
+  }, [roundStartedAt, playing, roundSV]);
   useEffect(() => {
     phase.value = roundPhase;
     if (!playing) return;
@@ -257,30 +280,148 @@ export function PlayField({ width, height }: PlayFieldProps) {
     return p.detach();
   });
 
-  // Limbs: each one reaches from its body anchor toward the aim point, ending at its own muzzle offset at the shot origin's height.
-  // Seen from behind, the limbs on the character's back are nearest to the camera and are drawn over the torso; the others under it.
-  const limbPaths = useDerivedValue(() => {
-    const chest = Skia.PathBuilder.Make();
-    const back = Skia.PathBuilder.Make();
-    const aimZ = dx * Math.tan(aim.value);
+  // The character, posed by the rig every frame in its own frame (x forward from the shot origin, y up, z right), then projected.
+  // Seen from behind, the arms anchored on the back are nearest to the camera and are drawn over the torso; the others under it.
+  const bodyScale = scaleAt(cam, ox);
+  const armStroke = Math.max(7, 0.075 * BODY_H * bodyScale);
+  const legStroke = Math.max(9, 0.12 * BODY_H * bodyScale);
+  const bodyPaths = useDerivedValue(() => {
+    clock.value;
+    const nowMs = Date.now();
+    const round = roundSV.value;
+    const sched = scheduleSV.value;
     const offs = offsetsSV.value;
+    const aimZ = dx * Math.tan(aim.value);
+    const t = (nowMs - round.startMs) / 1000;
+    const timings: (ArmTiming | null)[] = new Array(anchors.length);
     for (let i = 0; i < anchors.length; i++) {
-      const an = anchors[i]!;
       const off = offs[i] ?? 0;
-      const limbYaw = Math.atan2(aimZ - off, dx);
-      const ax = an.behind ? ox - 0.1 : ox + 0.05;
-      const ay = an.y * BODY_H;
-      const az = an.x * BODY_H;
-      const hx = ox + REACH * Math.cos(limbYaw);
-      const hz = off + REACH * Math.sin(limbYaw);
-      const path = an.behind ? back : chest;
-      path.moveTo(screenX(cam, ax, az), screenY(cam, ax, ay, az));
-      path.lineTo(screenX(cam, hx, hz), screenY(cam, hx, oy, hz));
+      const yaw = Math.atan2(aimZ - off, dx);
+      if (round.playing) {
+        const period = sched.period[i] ?? Number.POSITIVE_INFINITY;
+        timings[i] = { tau: tauFor(t, sched.first[i] ?? 0, period), period, yaw, offset: off };
+      } else {
+        timings[i] = { tau: -10, period: Number.POSITIVE_INFINITY, yaw, offset: off };
+      }
     }
-    return { chest: chest.detach(), back: back.detach() };
+    const pose = poseBody({ anchors, timings, releaseY: oy, time: nowMs / 1000 });
+
+    const sx = (v: Vec) => screenX(cam, ox + v.x, v.z);
+    const sy = (v: Vec) => screenY(cam, ox + v.x, v.y, v.z);
+
+    const chestArms = Skia.PathBuilder.Make();
+    const chestHands = Skia.PathBuilder.Make();
+    const backArms = Skia.PathBuilder.Make();
+    const backHands = Skia.PathBuilder.Make();
+    const heldInkChest = Skia.PathBuilder.Make();
+    const heldChest = Skia.PathBuilder.Make();
+    const heldInkBack = Skia.PathBuilder.Make();
+    const heldBack = Skia.PathBuilder.Make();
+    for (let i = 0; i < pose.arms.length; i++) {
+      const arm = pose.arms[i]!;
+      const arms = arm.behind ? backArms : chestArms;
+      const hands = arm.behind ? backHands : chestHands;
+      const heldInk = arm.behind ? heldInkBack : heldInkChest;
+      const held = arm.behind ? heldBack : heldChest;
+      arms.moveTo(sx(arm.shoulder), sy(arm.shoulder));
+      arms.lineTo(sx(arm.elbow), sy(arm.elbow));
+      arms.lineTo(sx(arm.wrist), sy(arm.wrist));
+      hands.moveTo(sx(arm.wrist), sy(arm.wrist));
+      hands.lineTo(sx(arm.tip), sy(arm.tip));
+      if (arm.holding > 0) {
+        const r = sched.radii[i] ?? 0.1;
+        // The ball sits just past the fingertips.
+        const dxh = arm.tip.x - arm.wrist.x;
+        const dyh = arm.tip.y - arm.wrist.y;
+        const dzh = arm.tip.z - arm.wrist.z;
+        const l = Math.sqrt(dxh * dxh + dyh * dyh + dzh * dzh) || 1;
+        const c = { x: arm.tip.x + (dxh / l) * r * 0.9, y: arm.tip.y + (dyh / l) * r * 0.9, z: arm.tip.z + (dzh / l) * r * 0.9 };
+        const rp = r * scaleAt(cam, ox + c.x, c.z);
+        heldInk.addCircle(sx(c), sy(c), rp + border.width);
+        held.addCircle(sx(c), sy(c), rp);
+      }
+    }
+
+    const legs = Skia.PathBuilder.Make();
+    const feet = Skia.PathBuilder.Make();
+    for (const leg of pose.legs) {
+      legs.moveTo(sx(leg.hip), sy(leg.hip));
+      legs.lineTo(sx(leg.knee), sy(leg.knee));
+      legs.lineTo(sx(leg.ankle), sy(leg.ankle));
+      feet.moveTo(sx(leg.ankle), sy(leg.ankle));
+      feet.lineTo(sx(leg.toe), sy(leg.toe));
+    }
+
+    // Torso: a trapezoid from the hips up to wider shoulders, leaning with them. Filled, then stroked with round joins for the
+    // outline, so the corners come out rounded.
+    const torso = Skia.PathBuilder.Make();
+    const b = border.width;
+    const shoulderTop = pose.shoulders.y - 0.01 * BODY_H;
+    const hipBottom = pose.hips.y - 0.03 * BODY_H;
+    const sl = { x: pose.shoulders.x, y: shoulderTop, z: -TORSO_HALF * BODY_H };
+    const sr = { x: pose.shoulders.x, y: shoulderTop, z: TORSO_HALF * BODY_H };
+    const hipL = { x: pose.hips.x, y: hipBottom, z: -0.8 * TORSO_HALF * BODY_H };
+    const hipR = { x: pose.hips.x, y: hipBottom, z: 0.8 * TORSO_HALF * BODY_H };
+    torso.moveTo(sx(sl), sy(sl));
+    torso.lineTo(sx(sr), sy(sr));
+    torso.lineTo(sx(hipR), sy(hipR));
+    torso.lineTo(sx(hipL), sy(hipL));
+    torso.close();
+    const torsoShape = torso.detach();
+
+    const neck = Skia.PathBuilder.Make();
+    const nl = screenX(cam, ox + pose.shoulders.x, -0.05 * BODY_H);
+    const nr = screenX(cam, ox + pose.shoulders.x, 0.05 * BODY_H);
+    const nt = screenY(cam, ox + pose.shoulders.x, pose.shoulders.y + 0.08 * BODY_H);
+    const nb = screenY(cam, ox + pose.shoulders.x, pose.shoulders.y);
+    neck.addRect({ x: nl, y: nt, width: nr - nl, height: nb - nt });
+
+    const head = Skia.PathBuilder.Make();
+    const headInk = Skia.PathBuilder.Make();
+    const ears = Skia.PathBuilder.Make();
+    const hr = HEAD_R * BODY_H * scaleAt(cam, ox + pose.head.x);
+    headInk.addCircle(sx(pose.head), sy(pose.head), hr + b);
+    head.addCircle(sx(pose.head), sy(pose.head), hr);
+    for (const side of [-1, 1]) {
+      const e = { x: pose.head.x, y: pose.head.y - 0.01 * BODY_H, z: side * HEAD_R * BODY_H * 0.98 };
+      ears.addCircle(sx(e), sy(e), 0.025 * BODY_H * bodyScale);
+    }
+
+    return {
+      chestArms: chestArms.detach(),
+      chestHands: chestHands.detach(),
+      backArms: backArms.detach(),
+      backHands: backHands.detach(),
+      heldInkChest: heldInkChest.detach(),
+      heldChest: heldChest.detach(),
+      heldInkBack: heldInkBack.detach(),
+      heldBack: heldBack.detach(),
+      legs: legs.detach(),
+      feet: feet.detach(),
+      torso: torsoShape,
+      torsoInk: torsoShape,
+      neck: neck.detach(),
+      head: head.detach(),
+      headInk: headInk.detach(),
+      ears: ears.detach(),
+    };
   });
-  const chestLimbs = useDerivedValue(() => limbPaths.value.chest);
-  const backLimbs = useDerivedValue(() => limbPaths.value.back);
+  const chestArms = useDerivedValue(() => bodyPaths.value.chestArms);
+  const chestHands = useDerivedValue(() => bodyPaths.value.chestHands);
+  const backArms = useDerivedValue(() => bodyPaths.value.backArms);
+  const backHands = useDerivedValue(() => bodyPaths.value.backHands);
+  const heldInkChest = useDerivedValue(() => bodyPaths.value.heldInkChest);
+  const heldChest = useDerivedValue(() => bodyPaths.value.heldChest);
+  const heldInkBack = useDerivedValue(() => bodyPaths.value.heldInkBack);
+  const heldBack = useDerivedValue(() => bodyPaths.value.heldBack);
+  const legsPath = useDerivedValue(() => bodyPaths.value.legs);
+  const feetPath = useDerivedValue(() => bodyPaths.value.feet);
+  const torsoPath = useDerivedValue(() => bodyPaths.value.torso);
+  const torsoInkPath = useDerivedValue(() => bodyPaths.value.torsoInk);
+  const neckPath = useDerivedValue(() => bodyPaths.value.neck);
+  const headPath = useDerivedValue(() => bodyPaths.value.head);
+  const headInkPath = useDerivedValue(() => bodyPaths.value.headInk);
+  const earsPath = useDerivedValue(() => bodyPaths.value.ears);
 
   const pan = useMemo(
     () =>
@@ -300,9 +441,12 @@ export function PlayField({ width, height }: PlayFieldProps) {
   );
 
   const world = useMemo(() => buildWorld(def, cam, width, height), [def, cam, width, height]);
-  const body = useMemo(() => buildBody(def, cam), [def, cam]);
+  const bodyShadow = useMemo(() => {
+    const p = Skia.PathBuilder.Make();
+    p.addOval(oval(cam, ox, 0, 0, 0.5));
+    return p.detach();
+  }, [cam, ox]);
   const target = useMemo(() => buildTarget(def, cam), [def, cam]);
-  const limbStroke = Math.max(8, 0.1 * BODY_H * scaleAt(cam, ox));
 
   return (
     <GestureDetector gesture={pan}>
@@ -338,20 +482,30 @@ export function PlayField({ width, height }: PlayFieldProps) {
           <Path path={midBalls} color={palette.ball} />
 
 
-          {/* Character from behind: shadow, limbs on the far side, legs, torso, limbs on the near side, head */}
-          <Path path={body.shadow} color={colors.ink} opacity={0.22} />
-          <Path path={chestLimbs} color={colors.ink} style="stroke" strokeWidth={limbStroke + 2 * border.width} strokeCap="round" />
-          <Path path={chestLimbs} color={colors.skinShade} style="stroke" strokeWidth={limbStroke} strokeCap="round" />
-          <Path path={body.legsInk} color={colors.ink} />
-          <Path path={body.legs} color={colors.trousers} />
-          <Path path={body.torsoInk} color={colors.ink} />
-          <Path path={body.torso} color={colors.paper} />
-          <Path path={backLimbs} color={colors.ink} style="stroke" strokeWidth={limbStroke + 2 * border.width} strokeCap="round" />
-          <Path path={backLimbs} color={colors.skin} style="stroke" strokeWidth={limbStroke} strokeCap="round" />
-          <Path path={body.neck} color={colors.skin} />
-          <Path path={body.headInk} color={colors.ink} />
-          <Path path={body.head} color={colors.hair} />
-          <Path path={body.ears} color={colors.skin} />
+          {/* Character from behind: shadow, arms on the far side, legs, torso, arms on the near side, head, the ball in the hands */}
+          <Path path={bodyShadow} color={colors.ink} opacity={0.22} />
+          <Path path={chestArms} color={colors.ink} style="stroke" strokeWidth={armStroke + 2 * border.width} strokeCap="round" strokeJoin="round" />
+          <Path path={chestArms} color={colors.skinShade} style="stroke" strokeWidth={armStroke} strokeCap="round" strokeJoin="round" />
+          <Path path={chestHands} color={colors.ink} style="stroke" strokeWidth={armStroke * 1.1 + 2 * border.width} strokeCap="round" />
+          <Path path={chestHands} color={colors.skinShade} style="stroke" strokeWidth={armStroke * 1.1} strokeCap="round" />
+          <Path path={heldInkChest} color={colors.ink} />
+          <Path path={heldChest} color={palette.ball} />
+          <Path path={legsPath} color={colors.ink} style="stroke" strokeWidth={legStroke + 2 * border.width} strokeCap="round" strokeJoin="round" />
+          <Path path={legsPath} color={colors.trousers} style="stroke" strokeWidth={legStroke} strokeCap="round" strokeJoin="round" />
+          <Path path={feetPath} color={colors.ink} style="stroke" strokeWidth={legStroke * 0.8} strokeCap="round" />
+          <Path path={torsoInkPath} color={colors.ink} style="stroke" strokeWidth={2 * border.width + 0.05 * BODY_H * bodyScale} strokeJoin="round" />
+          <Path path={torsoPath} color={colors.paper} />
+          <Path path={torsoPath} color={colors.paper} style="stroke" strokeWidth={0.05 * BODY_H * bodyScale} strokeJoin="round" />
+          <Path path={backArms} color={colors.ink} style="stroke" strokeWidth={armStroke + 2 * border.width} strokeCap="round" strokeJoin="round" />
+          <Path path={backArms} color={colors.skin} style="stroke" strokeWidth={armStroke} strokeCap="round" strokeJoin="round" />
+          <Path path={backHands} color={colors.ink} style="stroke" strokeWidth={armStroke * 1.1 + 2 * border.width} strokeCap="round" />
+          <Path path={backHands} color={colors.skin} style="stroke" strokeWidth={armStroke * 1.1} strokeCap="round" />
+          <Path path={neckPath} color={colors.skin} />
+          <Path path={headInkPath} color={colors.ink} />
+          <Path path={headPath} color={colors.hair} />
+          <Path path={earsPath} color={colors.skin} />
+          <Path path={heldInkBack} color={colors.ink} />
+          <Path path={heldBack} color={palette.ball} />
 
           {/* Aim: the perfect arc from the hand, with the spread's edges */}
           <Path path={conePath} color={colors.ink} style="stroke" strokeWidth={1.5} opacity={0.35} />
@@ -491,72 +645,6 @@ function buildWorld(def: SportDef, cam: Camera, width: number, height: number): 
   lane.lineTo(screenX(cam, x1, laneHalf), screenY(cam, x1, 0, laneHalf));
   void height;
   return { stands: stands.detach(), floor: floor.detach(), floorEdge: edge.detach(), lane: lane.detach() };
-}
-
-interface BodyPaths {
-  shadow: SkPath;
-  legsInk: SkPath;
-  legs: SkPath;
-  torsoInk: SkPath;
-  torso: SkPath;
-  neck: SkPath;
-  headInk: SkPath;
-  head: SkPath;
-  ears: SkPath;
-}
-
-/** The character's body from behind, at the shot origin's depth. Proportions follow limbs.ts (1 unit tall, torso 0.42 to 0.78). */
-function buildBody(def: SportDef, cam: Camera): BodyPaths {
-  const x = def.field.origin.x;
-  const s = scaleAt(cam, x);
-  const b = border.width;
-  const hw = 0.18 * BODY_H;
-  const hipY = 0.42 * BODY_H;
-  const shoulderY = 0.78 * BODY_H;
-
-  const shadow = Skia.PathBuilder.Make();
-  shadow.addOval(oval(cam, x, 0, 0, 0.5));
-
-  const legsInk = Skia.PathBuilder.Make();
-  const legs = Skia.PathBuilder.Make();
-  for (const side of [-1, 1]) {
-    const z0 = side * 0.03 * BODY_H;
-    const z1 = side * 0.17 * BODY_H;
-    const r = upright(cam, x, Math.min(z0, z1), Math.max(z0, z1), 0, hipY + 0.04 * BODY_H);
-    legsInk.addRect({ x: r.x - b, y: r.y - b, width: r.width + 2 * b, height: r.height + 2 * b });
-    legs.addRect(r);
-  }
-
-  const torsoInk = Skia.PathBuilder.Make();
-  const torso = Skia.PathBuilder.Make();
-  const t = upright(cam, x, -hw, hw, hipY, shoulderY);
-  const rr = 0.06 * BODY_H * s;
-  torsoInk.addRRect({ rect: { x: t.x - b, y: t.y - b, width: t.width + 2 * b, height: t.height + 2 * b }, rx: rr + b, ry: rr + b });
-  torso.addRRect({ rect: t, rx: rr, ry: rr });
-
-  const neck = Skia.PathBuilder.Make();
-  neck.addRect(upright(cam, x, -0.05 * BODY_H, 0.05 * BODY_H, shoulderY - 0.02 * BODY_H, shoulderY + 0.06 * BODY_H));
-
-  const headR = 0.095 * BODY_H;
-  const headY = 0.89 * BODY_H;
-  const headInk = Skia.PathBuilder.Make();
-  headInk.addCircle(screenX(cam, x, 0), screenY(cam, x, headY), headR * s + b);
-  const head = Skia.PathBuilder.Make();
-  head.addCircle(screenX(cam, x, 0), screenY(cam, x, headY), headR * s);
-  const ears = Skia.PathBuilder.Make();
-  for (const side of [-1, 1]) ears.addCircle(screenX(cam, x, side * headR * 0.98), screenY(cam, x, headY - 0.01 * BODY_H), 0.025 * BODY_H * s);
-
-  return {
-    shadow: shadow.detach(),
-    legsInk: legsInk.detach(),
-    legs: legs.detach(),
-    torsoInk: torsoInk.detach(),
-    torso: torso.detach(),
-    neck: neck.detach(),
-    headInk: headInk.detach(),
-    head: head.detach(),
-    ears: ears.detach(),
-  };
 }
 
 interface TargetPaths {
