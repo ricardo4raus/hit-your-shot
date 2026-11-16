@@ -15,6 +15,9 @@ Where the project stands and what comes next. Updated 2026-11-16.
 - Simulator (`npm run simulate`): a bot on the real engine with the yaw aim, pacing report, pacing test in CI. Balance tuned on the
   third-person engine (2026-11-16): first upgrade after round 1, ball swap at 4 min, second limb at 15 min, third at 26 min, second
   sport at 66 min. See `docs/pacing-report.md`.
+- Character rig (`src/features/play/rig.ts`, 24 tests): skeleton with two-bone IK for legs and any number of arms, the shot cycle
+  (dip, rise, flick, follow-through, return) per arm on its own fire schedule, squeezed at high fire rates, knees following the deepest
+  dip, breath when idle, the ball in the hands until the release.
 - Screenshot tool (`npm run screenshot`): exports the web build, opens it in headless Chrome at phone size and writes PNGs of idle,
   aiming, the first shots, mid-round and the result. The lead now sees the game before the owner does. The web build runs the real app
   (CanvasKit for Skia, localStorage for the save).
@@ -32,8 +35,9 @@ Where the project stands and what comes next. Updated 2026-11-16.
   golf are not in version 1. Tune again after real play.
 - Sound: `services.audio` is silent. Needs CC0 sounds per design rules section 11.
 - Icon, splash and store assets: template placeholders.
-- Character: no shooting animation yet (anticipation, release, settle), no breathing, no face (the face shows when the character looks
-  over its shoulder; not built), no limb fold-in on arrival, no new-ball roll-in (design rules sections 8 and 9).
+- Character: rig with knees, elbows, wrists and the shot cycle is in (2026-11-16); still missing: the face (shows when the character
+  looks over its shoulder), the strain face and longer dip for heavy balls, limb fold-in on arrival, the new-ball roll-in, the football
+  kick cycle (feet use the arm cycle for now) (design rules sections 8 and 9).
 - Football and golf: data, target branches and simple drawings exist; untested on the phone, not in version 1.
 - Hard mode, Trophies spending UI (sport selector), mastery display: not built.
 - Phase 2 services: AdMob, RevenueCat, crash reporting (needs a development build and the Apple account).

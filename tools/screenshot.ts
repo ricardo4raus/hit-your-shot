@@ -109,9 +109,9 @@ async function main(): Promise<void> {
     if (!play) throw new Error('play button not found');
     await play.tap();
     // A strip of frames through the first shots.
-    for (let i = 0; i < 6; i++) {
-      await new Promise((r) => setTimeout(r, 180));
-      await page.screenshot({ path: join(out, `03-round-${i}.png`) });
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 90));
+      await page.screenshot({ path: join(out, `03-round-${i}.png`), clip: { x: 0, y: HEIGHT * 0.35, width: WIDTH * 0.6, height: HEIGHT * 0.55 } });
     }
     await new Promise((r) => setTimeout(r, 2500));
     await page.screenshot({ path: join(out, '04-midround.png') });

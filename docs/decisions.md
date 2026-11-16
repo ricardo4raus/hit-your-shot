@@ -100,3 +100,12 @@ Verified on the owner's phone before this change: balls visible with outlines (f
 | Camera moved **behind the right shoulder** (0.9 m to the right, 3 m back, 1.5 m high, turned to look at the target). Character left of center, target on the center line. | From dead behind, the shooting hand was behind the head and the arc a vertical line. |
 | **Release height 2.0 m** (was 1.6 m, chest). | The arc now starts above the head, where a set shot leaves the hands, instead of out of the back of the skull. Launch speeds follow. |
 | The commentator's line sits in a paper **pill**, like the money counter. | Plain ink text over the character's shirt was unreadable. A pill is not a panel. |
+
+## 2026-11-16, the character rig (owner asked, lead built)
+
+| Decision | Reason / note |
+|---|---|
+| **Rig in code**, not hand animation: a skeleton posed by two-bone inverse kinematics every frame, with a shot cycle per arm (dip, rise, flick, follow-through, return). Numbers and timings in `src/features/play/rig.ts`. | Owner: "not realistic, but good movement; bend the knees before shooting, stretch the arm, flick the hand; each addable arm should know how it has to be animated". Code is the only way the uncapped procedural arms all move. |
+| The cycle is **squeezed into the fire period** when shots come faster than 0.95 s apart. | A fast arm must pump, not freeze or skip the dip. The release always sits at the engine's fire time. |
+| The hold is the ball at the chin with elbows out; the torso is a trapezoid that leans into the dip. | From behind, a ball held at the chest hides behind the back; at the chin the forearms show beside the torso and the dip reads. |
+| Still open for the owner to judge from the screenshots and the next phone test: whether the code character is good enough or body parts should be commissioned (plan step 4 of 2026-11-16). | The rig stays either way; an artist would replace the shapes, not the motion. |
