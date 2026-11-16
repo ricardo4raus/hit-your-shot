@@ -74,6 +74,7 @@ export interface RoundLog {
   limbs: number;
   ball: string;
   levels: Record<UpgradeId, number>;
+  trophies: number;
 }
 
 export interface CampaignResult {
@@ -218,7 +219,7 @@ export function simulateCampaign(balance: Balance, seed: number, options: Partia
     if (m.limbs4 === null && sport.limbs >= 4) m.limbs4 = time;
     if (m.mastered === null && sport.mastered) m.mastered = time;
     if (m.trophies10 === null && state.trophies >= balance.sports.football.unlockTrophies) m.trophies10 = time;
-    rounds.push({ index: i, timeSec: time, money: r.money, shots: r.shots, hits: r.hits, limbs: sport.limbs, ball: sport.limbBalls[0] ?? '', levels: { ...sport.upgrades } });
+    rounds.push({ index: i, timeSec: time, money: r.money, shots: r.shots, hits: r.hits, limbs: sport.limbs, ball: sport.limbBalls[0] ?? '', levels: { ...sport.upgrades }, trophies: state.trophies });
   }
   if (time <= 3600) longestQuiet = Math.max(longestQuiet, time - lastStepAt);
   return { seed, rounds, milestones: m, longestQuietSec: longestQuiet, finalState: state };

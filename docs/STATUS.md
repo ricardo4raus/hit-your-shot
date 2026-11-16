@@ -15,13 +15,14 @@ Where the project stands and what comes next. Updated 2026-11-16.
 - Simulator (`npm run simulate`): a bot on the real engine with the yaw aim, pacing report, pacing test in CI. Balance tuned on the
   third-person engine (2026-11-16): first upgrade after round 1, ball swap at 4 min, second limb at 15 min, third at 26 min, second
   sport at 66 min. See `docs/pacing-report.md`.
-- Phone tests: 2026-11-15 (aiming and shooting work; balls were invisible, fixed), 2026-11-16 (balls visible; the owner asked for the
-  third-person view and the new round flow, both built the same day).
+- Phone tests: 2026-11-15 (aiming and shooting work; balls were invisible, fixed), 2026-11-16 morning (balls visible; the owner asked
+  for the third-person view and the new round flow, both built the same day), 2026-11-16 afternoon (third-person works; basket too hard
+  to hit, aim line wanted as the flight arc; both done).
 
 ## Not yet done
 
-- **Third phone test** of the third-person build: readability of the small basket, the aim line on the floor, the feel of the lob, the
-  cards sliding away and back, the play button.
+- **Fourth phone test**: the wider basket and slower rail, the aim arc in the air, the two spread arcs; the cards sliding away and back;
+  the play button.
 - Balance: tuned with the simulator's greedy bot, not with people. The bot's quiet stretches (17 min without a purchase while it
   saves for a trainer) overstate a player's. Known from a probe on the new engine: in football the keeper blocks about a third of
   everything and accuracy barely matters (the goal is wide); in golf a flat shot rolls past the hole below accuracy 20. Football and

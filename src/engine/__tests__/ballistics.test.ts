@@ -13,6 +13,15 @@ function withStaticHoop(): Balance {
   return parseBalance(raw);
 }
 
+/** A still hoop of real proportions (0.23 m radius, 0.12 m ball): tight enough that a small pitch error meets the board or the rim. */
+function withNarrowHoop(): Balance {
+  const raw = JSON.parse(JSON.stringify(balance)) as Balance;
+  raw.sports.basketball.target.motion.amplitude = 0;
+  raw.sports.basketball.target.halfWidth = 0.23;
+  raw.sports.basketball.ballRadius = 0.12;
+  return parseBalance(raw);
+}
+
 /** The default balance with the football keeper standing still in the middle of the goal. */
 function withStaticKeeper(): Balance {
   const raw = JSON.parse(JSON.stringify(balance)) as Balance;
@@ -430,7 +439,7 @@ describe('resolveShot', () => {
   });
 
   it('bounces off the backboard when the shot is long', () => {
-    const b = withStaticHoop();
+    const b = withNarrowHoop();
     const def = b.sports.basketball;
     const board = def.target.backboard;
     if (!board) throw new Error('hoop has no backboard');
@@ -444,7 +453,7 @@ describe('resolveShot', () => {
   });
 
   it('bounces off the rim when the shot is a little short', () => {
-    const b = withStaticHoop();
+    const b = withNarrowHoop();
     const def = b.sports.basketball;
     // Shooting 1.5° too steep lands on the front of the rim.
     const input = shot({ spreadDeg: 1.5, ballId: 'regulation' });
