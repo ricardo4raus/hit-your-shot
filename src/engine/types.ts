@@ -27,6 +27,13 @@ export interface Vec2 {
   y: number;
 }
 
+/** World point: x depth toward the target, y height, z lateral (positive = the player's right). See ballistics.ts. */
+export interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
 // ---------- Persistent state ----------
 
 /** Everything about one sport. Money, upgrades, balls and characters are per sport (docs/game-design.md). */
@@ -92,25 +99,27 @@ export interface GameState {
 
 // ---------- Shots and rounds (transient) ----------
 
-/** One parabola: position(t) = p + v (t − t0) + ½ g (t − t0)² for t in [t0, t1). `gy` is negative (down). */
+/** One parabola: position(t) = p + v (t − t0) + ½ g (t − t0)² for t in [t0, t1). `gy` is negative (down); nothing acts on x and z. */
 export interface Segment {
   t0: number;
   t1: number;
   x: number;
   y: number;
+  z: number;
   vx: number;
   vy: number;
+  vz: number;
   gy: number;
 }
 
 export interface ShotInput {
   sport: SportId;
-  /** Aim angle in radians, 0 = right, positive = up. */
+  /** Aim yaw in radians, 0 = straight down the field at the target, positive = the player's right. The pitch is solved by the engine. */
   aim: number;
   /** Total spread in degrees (upgrade + ball), before the random roll. */
   spreadDeg: number;
   ballId: BallId;
-  /** Perpendicular offset of this limb from the shot origin, in meters (limbs.ts muzzleOffsets). */
+  /** Lateral (z) offset of this limb from the shot origin, in meters (limbs.ts muzzleOffsets). */
   offset: number;
   /** Round time of the shot, seconds. The target pose is evaluated from this. */
   t: number;
@@ -135,14 +144,14 @@ export interface ShotResult {
   limb: number;
 }
 
-/** Where the target is at round time t. The UI draws it; the resolver tests against it. */
+/** Where the target is at round time t. The UI draws it; the resolver tests against it. Only z changes with time. */
 export interface TargetPose {
   /** Center of the sensor (hoop center, hole center, goal mouth center). */
-  center: Vec2;
-  /** Sensor half width. */
+  center: Vec3;
+  /** Sensor half width (hoop and hole: radius; goal: half the mouth width). */
   halfWidth: number;
-  /** Optional keeper block center (football) or null. */
-  keeper: Vec2 | null;
+  /** Optional keeper box center (football) or null. */
+  keeper: Vec3 | null;
 }
 
 /** The live round. Owned by the store, never saved. Created by round.ts. */

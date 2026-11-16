@@ -87,8 +87,10 @@
       "limb": "arm",
       "unlockTrophies": 0,
       "field": {
-        "width": 10,
+        "_comment": "length = depth from the back wall (behind the character) to the far wall; halfSpan = side walls at z = ±halfSpan; origin = shot origin (x depth, y chest height), z = 0.",
+        "length": 10,
         "height": 7,
+        "halfSpan": 4.0,
         "origin": {
           "x": 2.5,
           "y": 1.6
@@ -96,21 +98,23 @@
       },
       "ballRadius": 0.12,
       "target": {
+        "_comment": "Seen from behind the character. center.x is depth, the hoop slides sideways (z) by amplitude on a sine of periodSec.",
         "kind": "hoop",
         "center": {
-          "x": 8.0,
+          "x": 6.5,
           "y": 3.05
         },
         "halfWidth": 0.23,
         "motion": {
-          "axis": "x",
+          "axis": "z",
           "amplitude": 1.0,
           "periodSec": 4.5
         },
         "backboard": {
           "dx": 0.38,
           "yFrom": -0.15,
-          "yTo": 0.95
+          "yTo": 0.95,
+          "halfSpan": 0.9
         },
         "rimRadius": 0.025
       },
@@ -124,13 +128,14 @@
       },
       "balls": [
         {
+          "_comment": "Launch speeds sit just above the slowest speed that reaches the hoop, so the lob stays on screen (apex about 3.6 m) and the pitch is forgiving; the yaw decides.",
           "id": "foam",
           "name": "Foam ball",
           "cost": 0,
           "value": 1,
           "accuracyPenaltyDeg": 0,
           "fireRateMult": 1.35,
-          "launchSpeed": 9.2,
+          "launchSpeed": 7.6,
           "radiusMult": 0.9
         },
         {
@@ -140,7 +145,7 @@
           "value": 4,
           "accuracyPenaltyDeg": 2.5,
           "fireRateMult": 1.0,
-          "launchSpeed": 9.2,
+          "launchSpeed": 7.7,
           "radiusMult": 1.0
         },
         {
@@ -150,7 +155,7 @@
           "value": 18,
           "accuracyPenaltyDeg": 7,
           "fireRateMult": 0.55,
-          "launchSpeed": 9.4,
+          "launchSpeed": 7.9,
           "radiusMult": 1.15
         }
       ]
@@ -160,8 +165,10 @@
       "limb": "foot",
       "unlockTrophies": 10,
       "field": {
-        "width": 12,
+        "_comment": "length = depth from the back wall (behind the character) to the far wall; halfSpan = side walls at z = ±halfSpan; origin = shot origin (x depth, y chest height), z = 0.",
+        "length": 12,
         "height": 6,
+        "halfSpan": 6.0,
         "origin": {
           "x": 2.5,
           "y": 0.3
@@ -181,7 +188,8 @@
           "periodSec": 3.5
         },
         "keeperHalfWidth": 0.35,
-        "keeperHeight": 1.9
+        "keeperHeight": 1.9,
+        "keeperHalfDepth": 0.2
       },
       "surfaces": {
         "floorRestitution": 0.5,
@@ -229,8 +237,10 @@
       "limb": "arm",
       "unlockTrophies": 25,
       "field": {
-        "width": 14,
+        "_comment": "length = depth from the back wall (behind the character) to the far wall; halfSpan = side walls at z = ±halfSpan; origin = shot origin (x depth, y chest height), z = 0.",
+        "length": 14,
         "height": 8,
+        "halfSpan": 6.0,
         "origin": {
           "x": 2.0,
           "y": 0.4
@@ -245,7 +255,7 @@
         },
         "halfWidth": 0.11,
         "motion": {
-          "axis": "x",
+          "axis": "z",
           "amplitude": 1.5,
           "periodSec": 0
         }

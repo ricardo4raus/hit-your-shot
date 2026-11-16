@@ -45,7 +45,7 @@ Tokens (to be copied into the theme file when code starts). Names describe the j
 | Token | Hex | Job |
 |---|---|---|
 | `ink` | `#1F2430` | every outline, every text on a fill, hard shadows |
-| `paper` | `#FFF7E8` | cards, result panel, speech bubbles |
+| `paper` | `#FFF7E8` | cards, panels, speech bubbles, the character's shirt |
 | `paper2` | `#F1E6CF` | wells, tracks, disabled fills |
 | `sky` | `#C9DCE8` | the default world background top |
 | `haze` | `#A9C2D4` | silhouettes in the far background |
@@ -89,14 +89,14 @@ Rules:
 
 - Portrait only. Design at 375 × 812 pt and check at 360 × 740 (small Android) and 430 × 932 (large iPhone).
 - Grid: 16 pt gutter, 8 pt base unit, 12 pt between cards. Touch targets at least 48 × 48 pt.
-- The play field is the top 70% of the screen. The character stands **left of center**, at about 25% of the width, feet at about 65% of the height. The target is on the right. This asymmetry is intentional and must not be "fixed".
+- The play field fills the **whole screen**, seen **from behind the character** (owner decision 2026-11-16, like the first reference). The character stands in the lower middle with its back to the player and takes about 60% of the height; its legs run under the cards. The target is ahead, small, slightly above the middle. The camera never moves. (The side view with the character left of center was the first build and is gone.)
 - Money sits top center in a `paper` pill with an `ink` outline. Nothing else is in the top bar during a round. Settings is a small ghost button top right.
-- The upgrade cards sit in the bottom 30%: three cards, equal width, each with name, icon, pips, and one button that shows the price. The cards are always visible, but **buying happens only between rounds** (owner decision 2026-11-15): during a round every buy button is disabled. The button is `paper2` and flat when unaffordable or during a round, and filled when it can be pressed.
-- Between rounds a result panel slides up **over the play field, not over the cards**, so the player reads the result and presses an upgrade without any navigation.
+- The upgrade cards sit over the bottom 30%: three cards, equal width, each with name, icon, pips, and one button that shows the price. **The cards exist only between rounds** (owner decision 2026-11-16): they slide away when a round starts and come back when it ends. Buying happens only between rounds (owner decision 2026-11-15); the buttons stay disabled during a round as a second guard. The button is `paper2` and flat when unaffordable, and filled when it can be pressed.
+- Between rounds **one play button** stands centered above the cards. After a round the money it made stands over the button in display lettering, "NEW!" beside it on a best round, the commentator's line under it. **No panel, no card** (owner decision 2026-11-16): the character stopping is the signal that the round is over.
 - Empty space is allowed and wanted. If a screen feels empty, that is the background's job to fix with haze, not the interface's job to fix with widgets.
-- Every screen has **one odd choice**: something off-grid, oversized or tilted that a template would not do. The character off-center, the result number tilted 4 degrees, the "NEW!" tag hanging over the card edge. One per screen, never three.
+- Every screen has **one odd choice**: something off-grid, oversized or tilted that a template would not do. On the play screen it is the scale: a huge back in the foreground and a small basket far away, with the round's money tilted 4 degrees over the button. The "NEW!" tag hangs crooked beside it. One per screen, never three.
 
-**Why:** generated layouts center everything and fill every gap, because that is the average of all layouts. A human designer leaves room and puts the hero slightly off-center, because the eye reads left-to-right and wants somewhere to go. The "one odd choice" rule forces a decision on every screen; a decision is exactly what slop lacks.
+**Why:** generated layouts center everything and fill every gap, because that is the average of all layouts. This screen does center its button, because the owner wants the thumb to find it without looking, and the camera behind the character makes the center the natural line of play. So the deliberate choice moved from position to scale. The "one odd choice" rule forces a decision on every screen; a decision is exactly what slop lacks.
 
 ## 7. Icons
 
@@ -109,6 +109,7 @@ Rules:
 ## 8. The character
 
 - One body shape, round head, dot eyes, a mouth that changes. Four expressions are enough: neutral, strain (heavy ball), surprise (wide eyes, small mouth), smug (half-closed eyes, small smile).
+- The player sees the character **from behind** (2026-11-16): the back of the head is hair with two ears, the shirt is `paper`, the trousers `trousers`. The face shows when the character looks over its shoulder at the camera: after a perfect round (smug), when a ball bounces back and hits it (surprise), and when a new character walks in. Limbs on the back are nearest to the camera and are drawn over the torso; the others reach around it.
 - The character is **not an athlete**. Slightly wrong clothes for the sport: socks with sandals on the golf course, a tie in the gym. One wrong item per character, not a costume.
 - Idle: breathes (2% scale on the torso, 2.4 s loop). Nothing else loops.
 - Shooting: anticipation (arm back, 80 ms), release (arm forward, ball leaves, 60 ms), settle (120 ms). Heavy balls stretch anticipation to 160 ms and add the strain face.
@@ -135,7 +136,8 @@ Everything the player does gets a reaction within 100 ms. Everything the game do
 | Ball leaves the hand | ball stretches 1.15 along the direction of travel for 2 frames | 40 ms |
 | Hit | target reacts (net swish, flag wobble, net bulge), ball squashes 0.8, `+$` text flies up and fades, coin pops toward the money pill | reaction 200 ms, text 500 ms |
 | Miss | ball bounces with correct physics, a small dust puff where it lands, no text | physics |
-| Round ends | result panel slides up from behind the cards | 280 ms, ease-out, no bounce |
+| Round starts | the cards slide down out of the way; the play button fades | 280 ms, ease-out |
+| Round ends | the character stops; the cards slide back; the money, the line and the play button rise 24 pt and fade in above them | 280 ms, ease-out, no bounce |
 | Upgrade bought | the pip fills, the card icon pops 1.1, the button price updates with a count | 240 ms |
 | New ball unlocked | the ball rolls in from the right and stops in front of the character | 600 ms |
 | New character | walks in from the left (120 ms per step, 4 steps), stops, looks at the camera for 400 ms | about 900 ms |
@@ -225,7 +227,7 @@ Run before any screenshot goes into a PR. The owner may run it too; it needs no 
 
 Decided by this document (the owner can overrule any of it): art technique, palette tokens, fonts, layout proportions, motion timings, voice rules, the checklist.
 
-Still open and listed in `docs/open-decisions.md`: the exact sports and their order (which decides which world colors are built first), the maximum number of arms (which decides how many character drawings exist), and whether the store listing may show the arm reveal in video ads.
+Everything that was open here was decided on 2026-11-15 (`docs/decisions.md`): sports and order, procedural uncapped limbs, Trophies. On 2026-11-16 the owner changed the view to third person and removed the result panel; sections 6, 8 and 9 were rewritten for that.
 
 ## 14. For the owner: the five decisions that matter most
 

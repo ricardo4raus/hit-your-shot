@@ -26,8 +26,8 @@ const BallDefSchema = z.object({
 });
 
 const TargetMotionSchema = z.object({
-  /** 'x' slides the sensor; 'keeper' slides the keeper block instead. periodSec 0 = no motion (golf: the slope changes per round instead). */
-  axis: z.enum(['x', 'keeper']),
+  /** 'z' slides the sensor sideways; 'keeper' slides the keeper box instead. periodSec 0 = no motion during the round (golf: the hole sits at a different z each round). */
+  axis: z.enum(['z', 'keeper']),
   amplitude: z.number().nonnegative(),
   periodSec: z.number().nonnegative(),
 });
@@ -37,12 +37,13 @@ const TargetDefSchema = z.object({
   center: Vec2Schema,
   halfWidth: z.number().positive(),
   motion: TargetMotionSchema,
-  /** Hoop only: board at center.x + dx, from center.y + yFrom to center.y + yTo. */
-  backboard: z.object({ dx: z.number(), yFrom: z.number(), yTo: z.number() }).optional(),
+  /** Hoop only: board at center.x + dx, from center.y + yFrom to center.y + yTo, halfSpan to each side of the hoop. */
+  backboard: z.object({ dx: z.number(), yFrom: z.number(), yTo: z.number(), halfSpan: z.number().positive() }).optional(),
   rimRadius: z.number().positive().optional(),
-  /** Goal only. */
+  /** Goal only: a box in front of the goal line, 2 × keeperHalfDepth deep. */
   keeperHalfWidth: z.number().positive().optional(),
   keeperHeight: z.number().positive().optional(),
+  keeperHalfDepth: z.number().positive().optional(),
 });
 
 const SurfacesSchema = z.object({
@@ -59,7 +60,8 @@ const SportDefSchema = z.object({
   name: z.string(),
   limb: z.enum(['arm', 'foot']),
   unlockTrophies: z.number().int().nonnegative(),
-  field: z.object({ width: z.number().positive(), height: z.number().positive(), origin: Vec2Schema }),
+  /** length: depth from the back wall to the far wall (x); height: ceiling (y); halfSpan: side walls at z = ±halfSpan. */
+  field: z.object({ length: z.number().positive(), height: z.number().positive(), halfSpan: z.number().positive(), origin: Vec2Schema }),
   ballRadius: z.number().positive(),
   target: TargetDefSchema,
   surfaces: SurfacesSchema,

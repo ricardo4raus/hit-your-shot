@@ -10,6 +10,7 @@ export const strings = {
   },
   round: {
     dragToAim: 'DRAG TO AIM',
+    play: 'Play',
     playAgain: 'Play again',
     hits: (hits: number, shots: number) => `${hits} of ${shots}`,
     shots: 'shots',

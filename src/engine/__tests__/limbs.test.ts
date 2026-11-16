@@ -162,7 +162,7 @@ describe('muzzleOffsets', () => {
 
   it.each(SPORT_IDS)('%s: the whole group stays within the span cap for n up to the soft cap', (sportId) => {
     const sport = balance.sports[sportId];
-    const maxSpan = balance.limbs.maxSpanFraction * sport.field.width;
+    const maxSpan = balance.limbs.maxSpanFraction * 2 * sport.field.halfSpan;
     for (let n = 1; n <= SOFT_CAP; n++) {
       const offsets = muzzleOffsets(n, sport, balance);
       const span = offsets[n - 1]! - offsets[0]!;
@@ -173,7 +173,7 @@ describe('muzzleOffsets', () => {
   it.each(SPORT_IDS)('%s: spacing follows the target width until the span cap binds', (sportId) => {
     const sport = balance.sports[sportId];
     const byTarget = balance.limbs.spacingFraction * 2 * sport.target.halfWidth;
-    const maxSpan = balance.limbs.maxSpanFraction * sport.field.width;
+    const maxSpan = balance.limbs.maxSpanFraction * 2 * sport.field.halfSpan;
     for (let n = 2; n <= SOFT_CAP; n++) {
       const offsets = muzzleOffsets(n, sport, balance);
       const spacing = offsets[1]! - offsets[0]!;

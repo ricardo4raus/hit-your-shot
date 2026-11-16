@@ -30,22 +30,30 @@ A mobile sports shooter with idle/upgrade progression. A character shoots balls 
 4. Between rounds the player spends money on upgrades. **Nothing can be bought while a round runs** (owner, 2026-11-15): the round is for shooting, the pause after it is for buying.
 5. Repeat. Every round gets better.
 
+### View (2026-11-16)
+
+- The game is seen **from behind the character** (third person), like the first reference screenshot: the character stands in the lower middle of the screen with its back to the player, the target is ahead and smaller, balls fly into the picture and come back out when they bounce.
+- The side view of the first build was replaced on the owner's second phone test (2026-11-16).
+
 ### Aiming
 
-- The player aims a **shooting line**.
-- The character shoots along that line. How close the balls follow the line depends on the **accuracy** upgrade.
-- Accuracy is shown as a **spread cone** around the line that narrows with each level and widens with heavier balls (decided with the version 1 scope, 2026-11-15).
+- The player aims a **shooting line** by dragging left or right anywhere on the field. The line runs along the floor from the character to the **aim point** on the target's line; the finger's position over the target is the aim point.
+- The player aims **sideways only**. The engine picks the launch height and power so that a perfect shot lands on the aim point (a lob for the basket, a flat kick at the goal, a flat shot at the hole). Skill is tracking the moving target, not judging power (lead decision 2026-11-16; the owner may overrule).
+- How close the balls follow the line depends on the **accuracy** upgrade. The spread is a cone around the perfect shot: a ball can go left or right of the line and also short or long.
+- Accuracy is shown as a **spread cone** on the floor around the line that narrows with each level and widens with heavier balls (decided with the version 1 scope, 2026-11-15).
 
 ### The target moves (2026-11-15)
 
-- Every sport has a slow, visible motion in the target: the basket slides on a rail, the golf hole sits on a slope that changes each round, the goalkeeper drifts.
+- Every sport has a slow, visible motion in the target: the basket slides **sideways** on a rail, the golf hole sits somewhere else each round, the goalkeeper drifts sideways.
 - The motion is gentle and readable. It exists so that aiming is a small decision every round and accuracy means "slack against the motion".
 - **Obstacles are never part of the normal loop.** They belong to hard mode only (see below).
 
-### Round result (2026-11-15)
+### Round flow (2026-11-16)
 
-- When a round ends, a result panel slides up over the play field, not over the upgrade cards: money this round, hits of shots, best-round marker, one commentator line, "Play again".
-- The upgrade cards stay visible and pressable under it. Tapping outside the panel, "Play again", or dragging on the play field starts the next round.
+- **During a round** the upgrade cards are gone: they slide away when the round starts. The screen is the field, the character and the money counter.
+- **When the round ends** nothing pops up. The character stops shooting, the cards slide back, and above them, centered, one **play button** starts the next round. Over the button stands the money the round made, "NEW!" beside it on a best round, and one commentator line under it.
+- The first round is started with the same button. Dragging on the field only aims; it never starts a round.
+- This replaced the result panel of 2026-11-15 on the owner's second phone test.
 
 ### Upgrades
 
@@ -78,7 +86,7 @@ A mobile sports shooter with idle/upgrade progression. A character shoots balls 
 - Unlockable characters add **more of that limb**: 1, then 2 at the same time, then 3, then 4, and so on. Extra arms shoot; extra feet kick.
 - **No fixed maximum** (owner, 2026-11-15, round 2). Limbs are **procedural**: the character is drawn by code, and a limb-placement algorithm attaches each new limb so that it looks roughly natural (shoulders and hips first, then along the torso and back, alternating sides). New limbs never need new art, so the count can scale as far as the economy and the phone allow. A soft performance cap lives in `balance.json` and is raised when devices prove it.
 - Each limb can be given a **different ball type**, or all limbs can use the same ball.
-- All limbs shoot **parallel to the aiming line**, side by side. **Spacing** (decided 2026-11-15): 0.35 × target width per sport, with the whole group's span capped at a fraction of the field so that many limbs squeeze closer together instead of shooting off-screen.
+- All limbs shoot at the **same aim point**, each from its own place on the body, so the shots converge (lead decision 2026-11-16, replacing "parallel": seen from behind, parallel shots from the outer limbs could never reach the basket, so extra limbs would have been extra misses). **Spacing** (decided 2026-11-15): 0.35 × target width per sport, with the whole group's span capped at a fraction of the field width so that many limbs squeeze closer together instead of shooting off-screen.
 - A new character works like a big fire-rate boost. This is intended: it is a **progression spike** that speeds the game up again when progress feels slow (dopamine moment).
 - The limbs should be **funny when the player first sees them**, not expected. They are never announced in text; see `docs/design-rules.md` section 8.
 
@@ -111,7 +119,7 @@ A mobile sports shooter with idle/upgrade progression. A character shoots balls 
 | 3 balls: foam, regulation, medicine | special balls |
 | Characters with 1 and 2 arms; 3 and 4 in the first update if time allows | arms 5 and up |
 | The 3 upgrades with pips and a spread cone | hard mode, obstacles, combos, prestige |
-| Round result panel with commentator line | leaderboards, accounts |
+| Round result over the play button, with commentator line | leaderboards, accounts |
 | Small offline earnings | daily rewards, notifications |
 | One rewarded "×2 this round" placement (available every third round at most), one rewarded "double" on the offline screen, one remove-ads purchase (around $2.99, also makes ×2 free and always available) | interstitials, other purchases |
 | Settings: sound, haptics, restore purchases, privacy | everything else |

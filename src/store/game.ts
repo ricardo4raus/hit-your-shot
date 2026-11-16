@@ -5,7 +5,7 @@
  * Rules for UI code:
  * - Read with narrow selectors: `useGame((s) => s.state.sports[s.state.currentSport].money)`. Never select whole objects in components
  *   that render often.
- * - The aim is NOT React state. The play field writes it with `setAim(angle)` every frame; the store reads it when a limb fires.
+ * - The aim is NOT React state. The play field writes it with `setAim(yaw)` every frame; the store reads it when a limb fires.
  * - Shots arrive through `onShots` in store/shotBus.ts, never through React state.
  * - Call actions through `useGame.getState().actions.xxx(...)`. Every action returns `{ ok }` or `{ ok: false, error }`.
  * - Nothing can be bought while a round plays (`between_rounds_only`); the UI disables the buttons and the store refuses anyway.
@@ -55,9 +55,9 @@ export interface GameActions {
   init(): void;
   /** Starts a round in the current sport. No-op while one is playing. */
   startRound(): ActionStatus;
-  /** Called from the play field on every drag frame. Radians, 0 = right, positive = up. */
-  setAim(angle: number): void;
-  /** Dismisses the result panel without starting a round (the shop opens, for example). */
+  /** Called from the play field on every drag frame. Yaw in radians, 0 = straight at the target, positive = right. */
+  setAim(yaw: number): void;
+  /** Dismisses the round result without starting a round (a sport switch, for example). */
   dismissResult(): void;
   buyUpgrade(id: UpgradeId): ActionStatus;
   buyBall(id: BallId): ActionStatus;
@@ -97,7 +97,7 @@ export interface GameStore {
 let fastLoop: ReturnType<typeof setInterval> | null = null;
 let slowLoop: ReturnType<typeof setInterval> | null = null;
 let appStateSub: { remove(): void } | null = null;
-let aim = Math.PI / 4;
+let aim = 0;
 let roundRng: Rng = E.createRng(1);
 let lastSaveAt = 0;
 let lastHitHapticAt = 0;
@@ -169,6 +169,7 @@ export const useGame = create<GameStore>((set, get) => {
       balance.commentary.manyBallsShots,
     );
     if (newBest) mediumHaptic();
+    // The round's phase stays with the finished round so the play field keeps a still target (golf) where it was.
     stopFastLoop();
     limbsAtLastRound = sport.limbs;
     const [roll, withRoll] = E.rollFromState(res.state);
@@ -325,8 +326,8 @@ export const useGame = create<GameStore>((set, get) => {
         return { ok: true };
       },
 
-      setAim(angle) {
-        if (Number.isFinite(angle)) aim = angle;
+      setAim(yaw) {
+        if (Number.isFinite(yaw)) aim = yaw;
       },
 
       dismissResult() {

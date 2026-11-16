@@ -13,8 +13,8 @@
  * - Feet: 1 and 2 at the hips (y ≈ 0.42), 3 from the side of the torso (y ≈ 0.55, side +1), 4 from the back (behind, y ≈ 0.5), then the
  *   same alternating pattern. Lengths 0.38 to 0.44.
  * - The result is sorted by index; `limbAnchors(n)` is a prefix of `limbAnchors(n + 1)` (adding a limb never moves the others).
- * - `muzzleOffsets(n, sport, balance)`: perpendicular offsets in meters, centered on the aim line, sorted ascending.
- *     spacing = min(balance.limbs.spacingFraction × (2 × target.halfWidth), (balance.limbs.maxSpanFraction × field.width) / max(1, n − 1)).
+ * - `muzzleOffsets(n, sport, balance)`: lateral (z) offsets in meters, centered on the character's spine, sorted ascending.
+ *     spacing = min(balance.limbs.spacingFraction × (2 × target.halfWidth), (balance.limbs.maxSpanFraction × 2 × field.halfSpan) / max(1, n − 1)).
  *     offsets = (i − (n − 1) / 2) × spacing for i in 0..n−1. n = 1 → [0].
  * - Tests (src/engine/__tests__/limbs.test.ts): prefix property up to 64, no anchor on the head, sides alternate for n ≥ 5, offsets
  *   symmetric and within the span cap for n up to balance.characters.softCapLimbs, n = 1 gives [0], 2 limbs both inside a centered
@@ -178,7 +178,7 @@ export function muzzleOffsets(n: number, sport: SportDef, balance: Balance): num
   if (count === 0) return [];
   if (count === 1) return [0];
   const byTarget = balance.limbs.spacingFraction * (2 * sport.target.halfWidth);
-  const bySpan = (balance.limbs.maxSpanFraction * sport.field.width) / (count - 1);
+  const bySpan = (balance.limbs.maxSpanFraction * 2 * sport.field.halfSpan) / (count - 1);
   const spacing = Math.min(byTarget, bySpan);
   const mid = (count - 1) / 2;
   const out: number[] = new Array(count);
