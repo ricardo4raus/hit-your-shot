@@ -34,7 +34,7 @@
   },
   "characters": {
     "_comment": "Character n has n limbs. Cost of character n (n >= 2) = baseCost * costGrowth^(n-2). softCapLimbs is a performance guard, not a design cap.",
-    "baseCost": 15000,
+    "baseCost": 50000,
     "costGrowth": 5.5,
     "softCapLimbs": 64,
     "names": [
@@ -62,7 +62,7 @@
     "perUpgradeTier": 1,
     "perNewBall": 1,
     "perBestRoundDecade": 1,
-    "bestRoundFirstDecade": 1000
+    "bestRoundFirstDecade": 3000
   },
   "mastery": {
     "incomeBonusPerSport": 0.1
@@ -96,19 +96,19 @@
           "y": 1.6
         }
       },
-      "ballRadius": 0.12,
+      "ballRadius": 0.1,
       "target": {
-        "_comment": "Seen from behind the character. center.x is depth, the hoop slides sideways (z) by amplitude on a sine of periodSec.",
+        "_comment": "Seen from behind the character. center.x is depth, the hoop slides sideways (z) by amplitude on a sine of periodSec. Hoop radius 0.32 m and ball radius 0.10 m (owner, third phone test 2026-11-16: the real proportions were too hard to hit on a phone).",
         "kind": "hoop",
         "center": {
           "x": 6.5,
           "y": 3.05
         },
-        "halfWidth": 0.23,
+        "halfWidth": 0.32,
         "motion": {
           "axis": "z",
           "amplitude": 1.0,
-          "periodSec": 4.5
+          "periodSec": 5.5
         },
         "backboard": {
           "dx": 0.38,
@@ -141,7 +141,7 @@
         {
           "id": "regulation",
           "name": "Regulation",
-          "cost": 500,
+          "cost": 1200,
           "value": 10,
           "accuracyPenaltyDeg": 2,
           "fireRateMult": 1.0,
@@ -151,7 +151,7 @@
         {
           "id": "medicine",
           "name": "Medicine ball",
-          "cost": 6000,
+          "cost": 15000,
           "value": 40,
           "accuracyPenaltyDeg": 5,
           "fireRateMult": 0.55,
@@ -163,7 +163,7 @@
     "football": {
       "name": "Football",
       "limb": "foot",
-      "unlockTrophies": 19,
+      "unlockTrophies": 22,
       "field": {
         "_comment": "length = depth from the back wall (behind the character) to the far wall; halfSpan = side walls at z = ±halfSpan; origin = shot origin (x depth, y chest height), z = 0.",
         "length": 12,
@@ -213,7 +213,7 @@
         {
           "id": "match",
           "name": "Match ball",
-          "cost": 500,
+          "cost": 1200,
           "value": 10,
           "accuracyPenaltyDeg": 2,
           "fireRateMult": 1.0,
@@ -223,7 +223,7 @@
         {
           "id": "bowling",
           "name": "Bowling ball",
-          "cost": 6000,
+          "cost": 15000,
           "value": 40,
           "accuracyPenaltyDeg": 5,
           "fireRateMult": 0.55,
@@ -235,7 +235,7 @@
     "golf": {
       "name": "Golf",
       "limb": "arm",
-      "unlockTrophies": 45,
+      "unlockTrophies": 50,
       "field": {
         "_comment": "length = depth from the back wall (behind the character) to the far wall; halfSpan = side walls at z = ±halfSpan; origin = shot origin (x depth, y chest height), z = 0.",
         "length": 14,
@@ -282,7 +282,7 @@
         {
           "id": "golf",
           "name": "Golf ball",
-          "cost": 500,
+          "cost": 1200,
           "value": 10,
           "accuracyPenaltyDeg": 2,
           "fireRateMult": 1.0,
@@ -292,7 +292,7 @@
         {
           "id": "steel",
           "name": "Steel ball",
-          "cost": 6000,
+          "cost": 15000,
           "value": 40,
           "accuracyPenaltyDeg": 5,
           "fireRateMult": 0.55,
