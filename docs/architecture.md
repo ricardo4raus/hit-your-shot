@@ -75,22 +75,22 @@ Each module is one file plus its tests in `src/engine/__tests__/<module>.test.ts
 
 ## Coordinates and units
 
-- World units are **meters**. The field is `balance.sports[sport].field` wide and high; origin bottom-left, `x` right, `y` up. Gravity is `balance.physics.gravity` (m/s², positive number, applied downward).
-- The character's **shot origin** is `field.origin` (chest height). Limb `i` fires from `origin + perp(aim) × muzzleOffsets[i]`.
-- The **aim** is an angle in radians, 0 = right, positive = up. The UI converts a drag to an angle; the engine never sees pixels.
-- The **target** is a `TargetPose` at round time `t`: for basketball the hoop center, with the sensor segment between the two rim points and a backboard segment; for golf the hole as a floor sensor; for football the goal mouth with a keeper block. Version 1 implements basketball; the others are data plus small `targetPose` branches.
-- **Hit** = the ball center crosses the sensor segment in the sensor's direction (downward for a hoop) with the center inside the segment.
+- World units are **meters**, seen from behind the character (2026-11-16). `x` is depth from the back wall toward the target (`field.length` long), `y` is height (`field.height` to the ceiling), `z` is lateral with side walls at `±field.halfSpan`, positive = the player's right. Gravity is `balance.physics.gravity` (m/s², positive number, applied downward); nothing acts sideways between contacts.
+- The character's **shot origin** is `field.origin` (depth and chest height) at `z = 0`. Limb `i` fires from `z = muzzleOffsets[i]`.
+- The **aim** is a yaw in radians, 0 = straight at the target, positive = right. It defines an **aim point** on the target plane; every limb shoots at that point from its own offset (convergent). The engine solves the **pitch** (`launchPitch`) for the sport's arc so a perfect shot passes through the aim point. The UI converts a drag to a yaw; the engine never sees pixels.
+- The **target** is a `TargetPose` at round time `t`: depth and height are fixed per sport, only `z` moves (the hoop slides sideways, the keeper drifts sideways, the hole sits at a different `z` each round). Basketball: a hoop ring with a backboard; golf: a hole in the floor; football: the goal mouth with a keeper box. Version 1 implements basketball; the others are data plus small `targetPose` branches.
+- **Hit** = the ball center crosses the sensor in its direction: down through the hoop's circle, forward through the goal mouth, onto the floor inside the hole.
 
 ## Shot resolution (ballistics)
 
 `resolveShot(input: ShotInput, rng: Rng, physics, sportDef): ShotResult`
 
-1. Direction = aim + spread roll. Spread is `gaussianish(rng) × spreadDeg` (sum of three uniforms, so the cone has a soft middle and rare edges).
-2. Launch speed = ball `launchSpeed`. Start point = origin + perpendicular offset.
-3. March time in fixed steps of `physics.stepSec` up to `physics.maxFlightSec`. At each step: new position by the parabola; test the **sensor** (hit → end after a short drop), the **floor**, the **walls**, the **ceiling**, the **backboard** segment, the **rim** circles. On contact: reflect the velocity with the surface's restitution, apply tangential friction, and **start a new segment** at that time. Below `physics.restSpeed` on the floor: rest. Rest → end.
-4. Output: `{ hit, segments, endSec, restSec, value }`. `value` is the money the hit is worth (ball value × income mult × bonuses), 0 for a miss.
+1. Direction = the limb's line to the aim point, plus a cone of deviation: `gaussianish(rng) × spreadDeg` (sum of three uniforms, so the cone has a soft middle and rare edges) in a uniformly random direction, split into a yaw part and a pitch part.
+2. Launch speed = ball `launchSpeed`. Start point = origin at the limb's lateral offset. Pitch from `launchPitch` for the distance to the aim point.
+3. March time in fixed steps of `physics.stepSec` up to `physics.maxFlightSec`. At each step: new position by the parabola; test the **sensor** (hit → end after a short drop), the **floor**, the **back and far wall**, the **side walls**, the **ceiling**, the **backboard**, the **rim ring**, the **keeper box**. On contact: reflect the velocity with the surface's restitution, apply tangential friction, and **start a new segment** at that time. Below `physics.restSpeed` on the floor: rest. Rest → end.
+4. Output: `{ hit, segments, endSec, eventSec, value }`. `value` is the money the hit is worth (ball value × income mult × bonuses), 0 for a miss.
 
-`positionAt(segments, t)` returns `(x, y)` for playback; it is a worklet-safe function (no closures, plain math).
+`positionAt(segments, t, out)` writes `(x, y, z)` for playback; it is a worklet-safe function (no closures, plain math). `predictYaw` gives the yaw that meets the moving target; the estimate and the simulator bot aim with it.
 
 ## The round, live
 
@@ -101,14 +101,14 @@ startRound   → createRound(state, now, rng)           phase for the target, pe
 every 1/30 s → dueShots(round, t)                      limbs that should fire now
              → for each: shotInputFor(state, round, i, aim) → resolveShot → recordShot
              → UI thread gets the segments (shared value) and draws
-t ≥ roundSec → settleRound(state, round) → new state + events; result panel
+t ≥ roundSec → settleRound(state, round) → new state + events; the cards and the play button come back
 ```
 
 Fire rates can be extreme (hundreds of shots per second with many limbs and a light ball). Rules that keep it smooth:
 
 - The store resolves at most `balance.physics.maxShotsPerTick` shots per tick and carries the rest over; income is never lost, only delayed within the round.
-- Ball records live in a pooled `Float32Array` ring buffer on the UI thread (`maxBallsInFlight` from balance). When the pool is full, the oldest resting ball is recycled first.
-- Drawing is one Skia `Atlas` call for all balls, one `Path` per limb, one `Picture` for the static world.
+- Ball records live in one shared array on the UI thread (`maxBallsInFlight` from balance), each shot packed as flat numbers. When the array is full, the oldest balls are dropped first.
+- Drawing is a handful of Skia paths rebuilt per frame on the UI thread: the balls as circles in three depth groups (behind the target, between, in front of the character) with an ink path under each fill path, one path of flat shadows, two paths for the limbs, two for the aim. The world, the body and the target are static paths built once per size. (An `Atlas` of sprites did not render in Expo Go on iOS.)
 
 ## Economy
 
@@ -124,8 +124,8 @@ Fire rates can be extreme (hundreds of shots per second with many limbs and a li
 
 ## UI layer
 
-- One screen (`src/app/index.tsx`) hosts the play field, the money pill, the three cards, the result panel and the shop sheet. Settings is a modal route.
-- The play field is one Skia `Canvas`. Positions come from Reanimated shared values updated in `useFrameCallback`; React never re-renders per frame.
+- One screen (`src/app/index.tsx`) hosts the full-screen play field, the money pill, the three cards (between rounds), the play button with the last result (`features/round/RoundControls.tsx`) and the shop sheet. Settings is a modal route.
+- The play field is one Skia `Canvas` with a fixed pinhole camera behind the character (`features/play/camera.ts`). Positions come from Reanimated shared values read in `useDerivedValue` every frame; React never re-renders per frame.
 - Design tokens live in `src/ui/theme.ts` and come from `docs/design-rules.md` section 4 and 5. No literal colors or sizes in screens.
 - Every player-facing string lives in `src/content/` so the voice rules (design rules section 10) can be reviewed in one place.
 

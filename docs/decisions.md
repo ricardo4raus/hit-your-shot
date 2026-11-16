@@ -52,3 +52,25 @@ Owner decisions and the reasons, newest first. When an item is decided it also m
 | Art sources: code and hand SVG first, CC0 packs (Kenney) for props, AI tools (Recraft, Firefly) only for concepts and always redrawn. | Owner asked where models and ball designs come from. See `docs/design-rules.md` section 15. |
 
 Bug found on the phone: balls were invisible. The ball layer used a Skia `Atlas` fed from an offscreen sprite surface, which did not render in Expo Go on iOS. Replaced by one path of circles rebuilt on the UI thread per frame (ink stroke under the fill), with plain arrays crossing to the UI thread.
+
+## 2026-11-16, second phone test (owner)
+
+| Decision | Reason / note |
+|---|---|
+| **Third-person view.** The field is seen from behind the character, like the first reference screenshot: character big in the lower middle, target ahead and small, balls fly into the picture. | Owner: "what I actually wanted is a character shooting the balls from third person view, similar to that picture". Replaces the side view of the first build. |
+| **Cards disappear during a round.** They slide away when the round starts and come back when it ends. | Owner: "while in a round the upgrade buttons should disappear". |
+| **No result card.** When the round ends the character stops shooting, the cards come back, and one play button appears centered above them. | Owner: "no card pops up, just the character doesn't shoot anymore and the upgrade buttons pop up. Then above the upgrade buttons, centered, ... a button that lets you play the round again". The round's money and the commentator line stand over the button without a panel. |
+
+Verified on the owner's phone before this change: balls visible with outlines (fix of 2026-11-15 works).
+
+## 2026-11-16, lead decisions for the third-person build (owner may overrule)
+
+| Decision | Reason / note |
+|---|---|
+| The player aims **sideways only** (a yaw); the engine solves the launch power and height for the sport's arc. | From behind, up and down on the screen is depth, which a finger cannot judge. Tracking the sliding basket is the skill; power errors come from the spread. |
+| The spread is a **cone**: the same accuracy number scatters shots left/right and short/long. | One number, one visible cone on the floor. The basketball launch speed sits just above the slowest speed that reaches the hoop, which makes the lob forgiving in power and keeps it on screen. |
+| Limbs **converge on the aim point** instead of shooting parallel. | Seen from behind, parallel shots from a limb 0.2 m off the center line miss a 0.46 m basket almost always, so a second character would have been a second miss. Convergent, every limb is a full extra shooter, which is what the design wants ("a big fire-rate boost"). |
+| The hoop stands at 6.5 m depth (4 m from the character) instead of 8 m; the hoop slides sideways ±1 m. | At 8 m the basket is a dot on a phone from behind. 4 m is a long mid-range shot and the basket reads. |
+| Side walls at ±4 m (basketball), ±6 m (football, golf). Wild shots bounce back into the picture. | Owner (round 2): balls should go everywhere and bounce. |
+| Camera: 2.4 m behind the character, 1.5 m high, horizon at 48% of the height, focal length 0.8 × height. | The character spans about 60% of the height, the lob's apex stays under the money pill, the backboard clears the top bar. Numbers in `src/features/play/camera.ts`. |
+| The pacing simulator of PR 16 was never merged (the PR was closed on 2026-11-15); the balance numbers and pacing report it produced are not on `main`. | Found while preparing this change. It comes back in a separate PR, adapted to the yaw aim, and the balance is tuned again then. `docs/STATUS.md` says so. |
