@@ -125,7 +125,8 @@ describe('dueShots', () => {
     const state = withLimbs(1, foam.id, { upgrades: { accuracy: 0, fireRate: level, income: 0 } });
     const rate = shotsPerSec(balance, level, foam);
     const round = roundFor(state, { nextFireAt: [0] });
-    const t = (cap + 10) / rate;
+    // Half an interval past the eleventh extra shot, so floating-point rounding cannot put it on the boundary.
+    const t = (cap + 10.5) / rate;
     expect(t).toBeLessThan(round.seconds);
     const first = dueShots(round, state, balance, t);
     expect(first.limbs).toHaveLength(cap);
@@ -167,8 +168,8 @@ describe('dueShots', () => {
 
   it('30 limbs at a high rate, ticked at 30 Hz over a whole round, fire floor(rate × seconds) shots each under the cap', () => {
     const limbs = 30;
-    // A fire-rate level far above the shop's maximum: about 45 shots per second per limb, 1360 per second in total.
-    const level = 150;
+    // A fire-rate level far above the shop's maximum: about 47 shots per second per limb, about 1400 per second in total.
+    const level = 300;
     const state = withLimbs(limbs, foam.id, { upgrades: { accuracy: 0, fireRate: level, income: 0 } });
     const rate = shotsPerSec(balance, level, foam);
     expect(rate).toBeGreaterThan(40);
@@ -211,7 +212,7 @@ describe('dueShots', () => {
 
   it('with a rate above the cap\'s throughput every tick is full and the backlog is only delayed, never lost', () => {
     const limbs = 30;
-    const level = 400;
+    const level = 600;
     const state = withLimbs(limbs, foam.id, { upgrades: { accuracy: 0, fireRate: level, income: 0 } });
     const rate = shotsPerSec(balance, level, foam);
     expect(rate * limbs).toBeGreaterThan(cap * 30);
@@ -238,7 +239,7 @@ describe('hitValue', () => {
   it('is ball value × income multiplier × mastery bonus, not rounded', () => {
     const state = withLimbs(1, foam.id, { upgrades: { accuracy: 0, fireRate: 0, income: 3 } });
     expect(hitValue(state, balance, 'basketball', regulation, false)).toBeCloseTo(regulation.value * incomeMult(balance, 3), 12);
-    expect(hitValue(state, balance, 'basketball', foam, false)).toBe(1 * incomeMult(balance, 3) * masteryBonus(state, balance));
+    expect(hitValue(state, balance, 'basketball', foam, false)).toBe(foam.value * incomeMult(balance, 3) * masteryBonus(state, balance));
   });
 
   it('multiplies by the ×2 round multiplier when doubled', () => {
@@ -248,7 +249,7 @@ describe('hitValue', () => {
 
   it('counts mastered sports everywhere', () => {
     const state = makeStateWith('football', { mastered: true });
-    expect(hitValue(state, balance, 'basketball', foam, false)).toBeCloseTo(1 + balance.mastery.incomeBonusPerSport, 12);
+    expect(hitValue(state, balance, 'basketball', foam, false)).toBeCloseTo(foam.value * (1 + balance.mastery.incomeBonusPerSport), 12);
   });
 });
 
