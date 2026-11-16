@@ -12,6 +12,9 @@ Where the project stands and what comes next. Updated 2026-11-16.
 - App shell: zustand store with the 30 Hz round clock, services with Expo Go fakes, UI kit from the design rules, full-screen Skia play
   field seen from behind the character with UI-thread ball playback in depth groups, upgrade cards that leave during a round, the play
   button with the last result above the cards, shop sheet, offline panel, settings.
+- Simulator (`npm run simulate`): a bot on the real engine with the yaw aim, pacing report, pacing test in CI. Balance tuned on the
+  third-person engine (2026-11-16): first upgrade after round 1, ball swap at 4 min, second limb at 15 min, third at 26 min, second
+  sport at 66 min. See `docs/pacing-report.md`.
 - Phone tests: 2026-11-15 (aiming and shooting work; balls were invisible, fixed), 2026-11-16 (balls visible; the owner asked for the
   third-person view and the new round flow, both built the same day).
 
@@ -19,12 +22,10 @@ Where the project stands and what comes next. Updated 2026-11-16.
 
 - **Third phone test** of the third-person build: readability of the small basket, the aim line on the floor, the feel of the lob, the
   cards sliding away and back, the play button.
-- **Pacing simulator and balance.** PR 16 (simulator, pacing test, first balance pass) was closed on 2026-11-15 and never merged; the
-  numbers on `main` are the first guesses from the contract PR. The simulator comes back in a separate PR adapted to the yaw aim
-  (`predictYaw`), then the balance is tuned against `docs/analysis.md`. Known from a quick probe on the new engine: the foam ball lands
-  about 37% at accuracy 0 and 98% at level 20; the medicine ball tops out near 37% because of its 7° penalty; in football the keeper
-  blocks about a third of everything and accuracy barely matters (the goal is wide); in golf a flat shot rolls past the hole below
-  accuracy 20. Football and golf are not in version 1.
+- Balance: tuned with the simulator's greedy bot, not with people. The bot's quiet stretches (17 min without a purchase while it
+  saves for a trainer) overstate a player's. Known from a probe on the new engine: in football the keeper blocks about a third of
+  everything and accuracy barely matters (the goal is wide); in golf a flat shot rolls past the hole below accuracy 20. Football and
+  golf are not in version 1. Tune again after real play.
 - Sound: `services.audio` is silent. Needs CC0 sounds per design rules section 11.
 - Icon, splash and store assets: template placeholders.
 - Character: no shooting animation yet (anticipation, release, settle), no breathing, no face (the face shows when the character looks

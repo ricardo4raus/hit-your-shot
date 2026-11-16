@@ -74,3 +74,11 @@ Verified on the owner's phone before this change: balls visible with outlines (f
 | Side walls at ±4 m (basketball), ±6 m (football, golf). Wild shots bounce back into the picture. | Owner (round 2): balls should go everywhere and bounce. |
 | Camera: 2.4 m behind the character, 1.5 m high, horizon at 48% of the height, focal length 0.8 × height. | The character spans about 60% of the height, the lob's apex stays under the money pill, the backboard clears the top bar. Numbers in `src/features/play/camera.ts`. |
 | The pacing simulator of PR 16 was never merged (the PR was closed on 2026-11-15); the balance numbers and pacing report it produced are not on `main`. | Found while preparing this change. It comes back in a separate PR, adapted to the yaw aim, and the balance is tuned again then. `docs/STATUS.md` says so. |
+
+## 2026-11-16, lead balance decisions with the simulator (owner may overrule)
+
+| Decision | Reason / note |
+|---|---|
+| The simulator of the closed PR 16 is back, with the bot aiming a yaw through `predictYaw`. `npm run simulate` writes `docs/pacing-report.md`; the pacing test asserts the early targets in CI. | Tuning by hand against the third-person engine would be guesswork. |
+| Numbers from PR 16 kept: upgrades to level 60 from $12 (accuracy ×1.25, fire rate and income ×1.3 per level; accuracy ×0.8 spread, fire rate +8%, income +15% per level); trainers $15,000 × 5.5 per extra limb; balls $0 / $500 / $6,000 worth $3 / $10 / $40 with 0° / 2° / 5° penalties; Trophies every 5 levels, 1 per new ball, best-round decades from $1,000; football at 19 Trophies, golf at 45. | On the new engine they meet every pacing target of `docs/analysis.md` except the bot's quiet stretch: first upgrade 14 s, ball swap 4.1 min, second limb 14.8 min, third 26.1 min, second sport 65.9 min (medians over 6 seeds). |
+| Ball radius 0.12 m and hoop radius 0.23 m stay (PR 16 had widened them for parallel limbs). | Limbs converge now, so the outer limbs do not need a wider hoop; real proportions read better from behind. |
