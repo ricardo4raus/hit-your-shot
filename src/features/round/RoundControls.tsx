@@ -2,7 +2,8 @@
  * What sits above the upgrade cards between rounds (owner decision 2026-11-16): no panel. The character simply stops shooting, the cards
  * come back, and above them, centered, one play button. After a round the money it made stands over the button in display lettering,
  * tilted 4 degrees (this screen's one odd choice), with "NEW!" beside it on a best round and the commentator's line under it. The ×2 offer
- * is a small second button. Everything fades and rises in 280 ms with ease-out; Reduce Motion fades only. Touches outside the buttons
+ * is a small second button. The line sits in a paper pill like the money counter, because the character's shirt is behind it; a pill is
+ * not a panel. Everything fades and rises in 280 ms with ease-out; Reduce Motion fades only. Touches outside the buttons
  * fall through to the play field so the player can keep aiming.
  */
 import { useEffect, useState } from 'react';
@@ -12,7 +13,7 @@ import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, w
 import { strings } from '@/content/strings';
 import { canWatchX2, formatMoney } from '@/engine';
 import { balance, useGame } from '@/store/game';
-import { AppText, OutlinedText, StickerButton, colors, motion, space } from '@/ui';
+import { AppText, OutlinedText, Pill, StickerButton, colors, motion, space } from '@/ui';
 
 export interface RoundControlsProps {
   /** Distance from the bottom of the screen to the top of the cards. */
@@ -80,13 +81,17 @@ function ControlsBody({ bottom }: RoundControlsProps) {
           </View>
         ) : null}
         {result ? (
-          <AppText variant="label" center style={styles.line} numberOfLines={2}>
-            {result.line}
-          </AppText>
+          <Pill style={styles.linePill}>
+            <AppText variant="label" center style={styles.line} numberOfLines={2}>
+              {result.line}
+            </AppText>
+          </Pill>
         ) : roundsPlayed === 0 ? (
-          <AppText variant="label" center style={styles.line}>
-            {strings.round.dragToAim}
-          </AppText>
+          <Pill style={styles.linePill}>
+            <AppText variant="label" center style={styles.line}>
+              {strings.round.dragToAim}
+            </AppText>
+          </Pill>
         ) : null}
         <StickerButton
           title={result ? strings.round.playAgain : strings.round.play}
@@ -111,7 +116,8 @@ const styles = StyleSheet.create({
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   tilt: { transform: [{ rotate: '-4deg' }], paddingHorizontal: space.xs },
   newTag: { transform: [{ rotate: '6deg' }] },
-  line: { maxWidth: 300 },
+  linePill: { maxWidth: 320, paddingVertical: 4 },
+  line: { flexShrink: 1 },
   primary: { width: BUTTON_WIDTH },
   secondary: { width: BUTTON_WIDTH },
 });
