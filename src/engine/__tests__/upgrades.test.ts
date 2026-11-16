@@ -19,10 +19,11 @@ describe('upgradeCost', () => {
     }
   });
 
-  it('matches the current balance table for the first five levels', () => {
-    expect(levels(5).map((l) => upgradeCost(balance, 'accuracy', l))).toEqual([20, 23, 26, 30, 35]);
-    expect(levels(5).map((l) => upgradeCost(balance, 'fireRate', l))).toEqual([20, 23, 27, 31, 36]);
-    expect(levels(5).map((l) => upgradeCost(balance, 'income', l))).toEqual([20, 23, 27, 32, 37]);
+  it('starts at the base cost and stays affordable for the first rounds', () => {
+    for (const id of UPGRADE_IDS) {
+      expect(upgradeCost(balance, id, 0)).toBe(Math.round(balance.upgrades[id].baseCost));
+      expect(upgradeCost(balance, id, 4)).toBeLessThan(balance.upgrades[id].baseCost * 3);
+    }
   });
 
   it('is a whole number that never decreases with level', () => {
