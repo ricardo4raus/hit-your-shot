@@ -132,7 +132,7 @@ Everything the player does gets a reaction within 100 ms. Everything the game do
 | Moment | What happens | Timing |
 |---|---|---|
 | Press a button | scales to 0.96 | 90 ms down, 160 ms up, spring with slight overshoot |
-| Drag the aim line | line follows the finger with no smoothing; the spread cone follows | immediate |
+| Drag the aim line | the perfect arc follows the finger with no smoothing; the two spread arcs follow | immediate |
 | Ball leaves the hand | ball stretches 1.15 along the direction of travel for 2 frames | 40 ms |
 | Hit | target reacts (net swish, flag wobble, net bulge), ball squashes 0.8, `+$` text flies up and fades, coin pops toward the money pill | reaction 200 ms, text 500 ms |
 | Miss | ball bounces with correct physics, a small dust puff where it lands, no text | physics |
@@ -245,6 +245,6 @@ For the next layer of art (balls with a face, sport props, the icon, store scree
 
 1. **Draw it in code or as SVG by hand.** The lead writes SVG paths for simple objects (a ball with a two-tone split and a seam, a flag, a cone keeper). Cheap, consistent, no licence questions. Good enough for everything round or rectangular.
 2. **CC0 asset packs for props.** Kenney (kenney.nl, CC0, no credit needed) has sports, shape and UI packs in a flat vector style close to ours; OpenGameArt filtered to CC0. Recolor to the palette, redraw the outline at 3 px. Never mix a pack's style with ours unedited.
-3. **AI tools for concepts and one-off illustrations**, never for in-game sprites unedited. Recraft (vector output, keeps a style across a set, usable for icon families), Adobe Firefly (trained on licensed material, safest commercially), Ideogram or Midjourney for mood boards and store artwork. Rules: generate in our palette with "flat vector, thick dark outline, no gradient, no texture", always redraw or trace the result so the outline, colours and proportions match, and keep the prompt and the source file in `assets/src/`. Purely AI-generated images may not be protected by copyright in the US, which is one more reason the shipped asset is always an edited one. Nothing that resembles a real brand or athlete.
+3. **AI tools for concepts and one-off illustrations**, never for in-game sprites unedited. The owner asked about Higgsfield (2026-11-16): it is a video and photoreal-image platform for social creators (Soul, DOP, access to Sora, Kling, Veo), not a vector tool. Right place for it: the store preview video and ads later, not in-game art. For the art itself the order below stands. Recraft (vector output, keeps a style across a set, usable for icon families), Adobe Firefly (trained on licensed material, safest commercially), Ideogram or Midjourney for mood boards and store artwork. Rules: generate in our palette with "flat vector, thick dark outline, no gradient, no texture", always redraw or trace the result so the outline, colours and proportions match, and keep the prompt and the source file in `assets/src/`. Purely AI-generated images may not be protected by copyright in the US, which is one more reason the shipped asset is always an edited one. Nothing that resembles a real brand or athlete.
 
 What the owner decides per asset: approve the drawn version in a PR screenshot, or ask for a pack or AI pass. The checklist in section 12 applies to every asset exactly as it applies to a screen.

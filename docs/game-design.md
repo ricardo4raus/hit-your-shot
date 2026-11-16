@@ -37,10 +37,11 @@ A mobile sports shooter with idle/upgrade progression. A character shoots balls 
 
 ### Aiming
 
-- The player aims a **shooting line** by dragging left or right anywhere on the field. The line runs along the floor from the character to the **aim point** on the target's line; the finger's position over the target is the aim point.
+- The player aims a **shooting line** by dragging left or right anywhere on the field. The line is the **arc a perfect ball flies** from the hand to the **aim point** on the target's line (owner, third phone test 2026-11-16; the first build drew it on the floor). The finger's position over the target is the aim point.
 - The player aims **sideways only**. The engine picks the launch height and power so that a perfect shot lands on the aim point (a lob for the basket, a flat kick at the goal, a flat shot at the hole). Skill is tracking the moving target, not judging power (lead decision 2026-11-16; the owner may overrule).
 - How close the balls follow the line depends on the **accuracy** upgrade. The spread is a cone around the perfect shot: a ball can go left or right of the line and also short or long.
-- Accuracy is shown as a **spread cone** on the floor around the line that narrows with each level and widens with heavier balls (decided with the version 1 scope, 2026-11-15).
+- Accuracy is shown as a **spread cone**: the same arc swung to both edges of the spread, drawn thin beside the line. It narrows with each level and widens with heavier balls (decided with the version 1 scope, 2026-11-15).
+- The basket is **wide**: hoop radius 0.32 m for a 0.10 m ball, about a kids' hoop (owner, third phone test 2026-11-16: the real proportions were too hard to hit on a phone). The rail is slower too (5.5 s per swing).
 
 ### The target moves (2026-11-15)
 

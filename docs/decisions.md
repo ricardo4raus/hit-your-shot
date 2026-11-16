@@ -82,3 +82,12 @@ Verified on the owner's phone before this change: balls visible with outlines (f
 | The simulator of the closed PR 16 is back, with the bot aiming a yaw through `predictYaw`. `npm run simulate` writes `docs/pacing-report.md`; the pacing test asserts the early targets in CI. | Tuning by hand against the third-person engine would be guesswork. |
 | Numbers from PR 16 kept: upgrades to level 60 from $12 (accuracy ×1.25, fire rate and income ×1.3 per level; accuracy ×0.8 spread, fire rate +8%, income +15% per level); trainers $15,000 × 5.5 per extra limb; balls $0 / $500 / $6,000 worth $3 / $10 / $40 with 0° / 2° / 5° penalties; Trophies every 5 levels, 1 per new ball, best-round decades from $1,000; football at 19 Trophies, golf at 45. | On the new engine they meet every pacing target of `docs/analysis.md` except the bot's quiet stretch: first upgrade 14 s, ball swap 4.1 min, second limb 14.8 min, third 26.1 min, second sport 65.9 min (medians over 6 seeds). |
 | Ball radius 0.12 m and hoop radius 0.23 m stay (PR 16 had widened them for parallel limbs). | Limbs converge now, so the outer limbs do not need a wider hoop; real proportions read better from behind. |
+
+## 2026-11-16, third phone test (owner)
+
+| Decision | Reason / note |
+|---|---|
+| **Bigger basket.** Hoop radius 0.23 m → 0.32 m, ball radius 0.12 m → 0.10 m, rail swing 4.5 s → 5.5 s. | Owner: "too difficult to hit a shot". With a thumb's aim error of about ±8°, the foam ball now lands about half the time at accuracy 0 and three quarters at level 10 (was a fifth and 40%). |
+| **The aim line is the flight arc**, not a line on the floor: the arc a perfect ball flies from the hand to the aim point, with the spread's two edges as thin arcs beside it. | Owner: "the aim line should show the fly line of the ball ... the perfect way a ball would go". |
+| Costs re-tuned for the easier basket: balls $1,200 / $15,000, trainers from $50,000, best-round decades from $3,000, football at 22 Trophies and golf at 50. | The wider hoop doubled early income; the simulator put the second trainer at 7.5 min and the second sport at 16 min. After the re-tune every target but the bot's quiet stretch is met again; see `docs/pacing-report.md`. |
+| Art tools: Higgsfield is for the store video and ads, not for in-game art; Recraft or Illustrator/Firefly for native SVG; Kenney for props; code for everything round. | Owner asked "Higgsfield or other tools". Section 15 of `docs/design-rules.md` updated. |
