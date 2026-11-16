@@ -87,13 +87,13 @@
       "limb": "arm",
       "unlockTrophies": 0,
       "field": {
-        "_comment": "length = depth from the back wall (behind the character) to the far wall; halfSpan = side walls at z = ±halfSpan; origin = shot origin (x depth, y chest height), z = 0.",
+        "_comment": "length = depth from the back wall (behind the character) to the far wall; halfSpan = side walls at z = ±halfSpan; origin = shot origin (x depth, y release height: above the head for a set shot), z = 0.",
         "length": 10,
         "height": 7,
         "halfSpan": 4.0,
         "origin": {
           "x": 2.5,
-          "y": 1.6
+          "y": 2.0
         }
       },
       "ballRadius": 0.1,
@@ -135,7 +135,7 @@
           "value": 3,
           "accuracyPenaltyDeg": 0,
           "fireRateMult": 1.35,
-          "launchSpeed": 7.6,
+          "launchSpeed": 7.3,
           "radiusMult": 0.9
         },
         {
@@ -145,7 +145,7 @@
           "value": 10,
           "accuracyPenaltyDeg": 2,
           "fireRateMult": 1.0,
-          "launchSpeed": 7.7,
+          "launchSpeed": 7.4,
           "radiusMult": 1.0
         },
         {
@@ -155,7 +155,7 @@
           "value": 40,
           "accuracyPenaltyDeg": 5,
           "fireRateMult": 0.55,
-          "launchSpeed": 7.9,
+          "launchSpeed": 7.6,
           "radiusMult": 1.15
         }
       ]
