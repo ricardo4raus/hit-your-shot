@@ -91,3 +91,12 @@ Verified on the owner's phone before this change: balls visible with outlines (f
 | **The aim line is the flight arc**, not a line on the floor: the arc a perfect ball flies from the hand to the aim point, with the spread's two edges as thin arcs beside it. | Owner: "the aim line should show the fly line of the ball ... the perfect way a ball would go". |
 | Costs re-tuned for the easier basket: balls $1,200 / $15,000, trainers from $50,000, best-round decades from $3,000, football at 22 Trophies and golf at 50. | The wider hoop doubled early income; the simulator put the second trainer at 7.5 min and the second sport at 16 min. After the re-tune every target but the bot's quiet stretch is met again; see `docs/pacing-report.md`. |
 | Art tools: Higgsfield is for the store video and ads, not for in-game art; Recraft or Illustrator/Firefly for native SVG; Kenney for props; code for everything round. | Owner asked "Higgsfield or other tools". Section 15 of `docs/design-rules.md` updated. |
+
+## 2026-11-16, lead decisions from the first screenshots (owner may overrule)
+
+| Decision | Reason / note |
+|---|---|
+| A **screenshot tool** (`npm run screenshot`): web export, headless Chrome at 375 × 812, PNGs into `screenshots/`, the chosen ones committed to `docs/screenshots/` with each UI PR. | The owner agreed (2026-11-16) that the lead needs to see the game before shipping; so far every look came from the owner's phone. |
+| Camera moved **behind the right shoulder** (0.9 m to the right, 3 m back, 1.5 m high, turned to look at the target). Character left of center, target on the center line. | From dead behind, the shooting hand was behind the head and the arc a vertical line. |
+| **Release height 2.0 m** (was 1.6 m, chest). | The arc now starts above the head, where a set shot leaves the hands, instead of out of the back of the skull. Launch speeds follow. |
+| The commentator's line sits in a paper **pill**, like the money counter. | Plain ink text over the character's shirt was unreadable. A pill is not a panel. |

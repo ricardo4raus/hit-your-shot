@@ -1,66 +1,91 @@
 /**
- * The camera of the play field: behind and a little above the character, looking down the field at the target (owner decision 2026-11-16,
- * "third person like the reference"). A plain pinhole projection with no tilt, so straight world lines stay straight on screen and every
- * object at one depth is a flat shape scaled by one factor. Numbers here are the only place the view is tuned.
+ * The camera of the play field: behind the character, a little above and to the right of it, turned to look at the target (owner decision
+ * 2026-11-16, "third person like the reference"; the over-the-shoulder offset came from the first screenshots: from dead behind, the
+ * shooting hand hides behind the head and the ball's arc is a vertical line). A pinhole projection with a yaw and no tilt, so straight
+ * world lines stay straight on screen. Numbers here are the only place the view is tuned.
  *
  * World (meters, see src/engine/ballistics.ts): x depth toward the target, y height, z lateral (positive = right).
  * Screen (points): origin top-left, y down.
  */
 export interface Camera {
-  /** Camera depth (x), behind the shot origin. */
+  /** Camera position. */
   x: number;
-  /** Camera height (y). */
   y: number;
+  z: number;
+  /** Unit forward vector in the ground plane (x, z) and the unit right vector. */
+  fx: number;
+  fz: number;
+  rx: number;
+  rz: number;
   /** Focal length in points: how many points one meter spans at one meter of depth. */
   f: number;
-  /** Screen x of z = 0. */
+  /** Screen x of the camera's line of sight. */
   centerX: number;
   /** Screen y of the horizon (points at the camera's height). */
   horizonY: number;
 }
 
 /** Meters the camera stands behind the shot origin. */
-const CAM_BACK = 2.4;
+const CAM_BACK = 3.0;
+/** Meters the camera stands to the right of the character: it looks over the right shoulder. */
+const CAM_SIDE = 0.9;
 /** Camera height: a little below the character's eyes, so the hoop is clearly above and the floor clearly below. */
 const CAM_HEIGHT = 1.5;
 /** The horizon sits at this fraction of the field height from the top. */
-const HORIZON_FRACTION = 0.48;
-/** Focal length as a fraction of the field height: the character (2.4 m away) spans about 60% of the height. */
+const HORIZON_FRACTION = 0.5;
+/** Focal length as a fraction of the field height: the character (3 m away) spans a little under half the height. */
 const FOCAL_FRACTION = 0.8;
 /** Nothing closer than this is projected (it would blow up); points in front of it are clamped to it. */
 const MIN_DEPTH = 0.4;
 
-export function makeCamera(width: number, height: number, originX: number): Camera {
-  return { x: originX - CAM_BACK, y: CAM_HEIGHT, f: FOCAL_FRACTION * height, centerX: width / 2, horizonY: HORIZON_FRACTION * height };
+/** The camera looks at (targetX, 0): the target's line, so the target sits on the screen's center line and the character to the left. */
+export function makeCamera(width: number, height: number, originX: number, targetX: number): Camera {
+  const x = originX - CAM_BACK;
+  const z = CAM_SIDE;
+  const yaw = Math.atan2(0 - z, targetX - x);
+  const fx = Math.cos(yaw);
+  const fz = Math.sin(yaw);
+  return { x, y: CAM_HEIGHT, z, fx, fz, rx: -fz, rz: fx, f: FOCAL_FRACTION * height, centerX: width / 2, horizonY: HORIZON_FRACTION * height };
 }
 
-/** Scale (points per meter) at world depth x. */
-export function scaleAt(cam: Camera, x: number): number {
+/** Depth of a world point along the line of sight, never below MIN_DEPTH. */
+function depthOf(cam: Camera, x: number, z: number): number {
   'worklet';
-  const d = x - cam.x;
-  return cam.f / (d < MIN_DEPTH ? MIN_DEPTH : d);
+  const d = (x - cam.x) * cam.fx + (z - cam.z) * cam.fz;
+  return d < MIN_DEPTH ? MIN_DEPTH : d;
+}
+
+/** Scale (points per meter) at a world point. */
+export function scaleAt(cam: Camera, x: number, z = 0): number {
+  'worklet';
+  return cam.f / depthOf(cam, x, z);
 }
 
 export function screenX(cam: Camera, x: number, z: number): number {
   'worklet';
-  return cam.centerX + z * scaleAt(cam, x);
+  const lateral = (x - cam.x) * cam.rx + (z - cam.z) * cam.rz;
+  return cam.centerX + lateral * scaleAt(cam, x, z);
 }
 
-export function screenY(cam: Camera, x: number, y: number): number {
+export function screenY(cam: Camera, x: number, y: number, z = 0): number {
   'worklet';
-  return cam.horizonY - (y - cam.y) * scaleAt(cam, x);
+  return cam.horizonY - (y - cam.y) * scaleAt(cam, x, z);
 }
 
-/** Vertical squash of a horizontal circle at (x, y): a disc on the floor or the rim seen from above or below. */
-export function flatRatio(cam: Camera, x: number, y: number): number {
+/** Vertical squash of a horizontal circle at (x, y, z): a disc on the floor or the rim seen from above or below. */
+export function flatRatio(cam: Camera, x: number, y: number, z = 0): number {
   'worklet';
-  const d = x - cam.x;
-  const r = Math.abs(y - cam.y) / (d < MIN_DEPTH ? MIN_DEPTH : d);
+  const r = Math.abs(y - cam.y) / depthOf(cam, x, z);
   return r > 1 ? 1 : r;
 }
 
-/** The world z under a screen x at a given depth: used to turn the finger into an aim point on the target plane. */
-export function worldZ(cam: Camera, x: number, sx: number): number {
+/** The world z where a screen x meets the plane x = planeX: used to turn the finger into an aim point on the target plane. */
+export function worldZ(cam: Camera, planeX: number, sx: number): number {
   'worklet';
-  return (sx - cam.centerX) / scaleAt(cam, x);
+  // Two passes: the depth of the plane along the line of sight depends a little on the lateral position.
+  let depth = (planeX - cam.x) / cam.fx;
+  let lateral = ((sx - cam.centerX) * depth) / cam.f;
+  depth = (planeX - cam.x - lateral * cam.rx) / cam.fx;
+  lateral = ((sx - cam.centerX) * depth) / cam.f;
+  return cam.z + depth * cam.fz + lateral * cam.rz;
 }

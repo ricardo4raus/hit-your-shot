@@ -61,7 +61,7 @@ export function PlayField({ width, height }: PlayFieldProps) {
 
   const def = balance.sports[sportId];
   const palette = sportColors[sportId as keyof typeof sportColors];
-  const cam = useMemo(() => makeCamera(width, height, def.field.origin.x), [width, height, def.field.origin.x]);
+  const cam = useMemo(() => makeCamera(width, height, def.field.origin.x, def.target.center.x), [width, height, def.field.origin.x, def.target.center.x]);
   const ox = def.field.origin.x;
   const oy = def.field.origin.y;
   const cx = def.target.center.x;
@@ -181,17 +181,17 @@ export function PlayField({ width, height }: PlayFieldProps) {
       const x = seg[o + 2]! + seg[o + 5]! * dt;
       const y = seg[o + 3]! + seg[o + 6]! * dt + 0.5 * seg[o + 8]! * dt * dt;
       const z = seg[o + 4]! + seg[o + 7]! * dt;
-      const s = scaleAt(cam, x);
+      const s = scaleAt(cam, x, z);
       const sx = screenX(cam, x, z);
-      const sy = screenY(cam, x, y);
+      const sy = screenY(cam, x, y, z);
       let rp = b.r * s;
       if (rp < 2) rp = 2;
       const ink = x >= farDepth ? farInk : x < nearDepth ? nearInk : midInk;
       const fill = x >= farDepth ? far : x < nearDepth ? near : mid;
       ink.addCircle(sx, sy, rp + border.width);
       fill.addCircle(sx, sy, rp);
-      const ry = rp * flatRatio(cam, x, 0);
-      const sy0 = screenY(cam, x, 0);
+      const ry = rp * flatRatio(cam, x, 0, z);
+      const sy0 = screenY(cam, x, 0, z);
       shadow.addOval({ x: sx - rp, y: sy0 - ry, width: 2 * rp, height: 2 * ry });
     }
     return {
@@ -274,8 +274,8 @@ export function PlayField({ width, height }: PlayFieldProps) {
       const hx = ox + REACH * Math.cos(limbYaw);
       const hz = off + REACH * Math.sin(limbYaw);
       const path = an.behind ? back : chest;
-      path.moveTo(screenX(cam, ax, az), screenY(cam, ax, ay));
-      path.lineTo(screenX(cam, hx, hz), screenY(cam, hx, oy));
+      path.moveTo(screenX(cam, ax, az), screenY(cam, ax, ay, az));
+      path.lineTo(screenX(cam, hx, hz), screenY(cam, hx, oy, hz));
     }
     return { chest: chest.detach(), back: back.detach() };
   });
@@ -398,7 +398,7 @@ function appendArc(p: { moveTo(x: number, y: number): unknown; lineTo(x: number,
     const z = lateral * f;
     const y = a.oy + vy * t - (a.gravity * t * t) / 2;
     const sx = screenX(a.cam, x, z);
-    const sy = screenY(a.cam, x, y);
+    const sy = screenY(a.cam, x, y, z);
     if (i === 0) p.moveTo(sx, sy);
     else p.lineTo(sx, sy);
   }
@@ -421,18 +421,19 @@ function setAimFromGesture(yaw: number): void {
 type Rect4 = { x: number; y: number; width: number; height: number };
 
 function oval(cam: Camera, x: number, y: number, z: number, radius: number): Rect4 {
-  const s = scaleAt(cam, x);
+  const s = scaleAt(cam, x, z);
   const rx = radius * s;
-  const ry = rx * flatRatio(cam, x, y);
-  return { x: screenX(cam, x, z) - rx, y: screenY(cam, x, y) - ry, width: 2 * rx, height: 2 * ry };
+  const ry = rx * flatRatio(cam, x, y, z);
+  return { x: screenX(cam, x, z) - rx, y: screenY(cam, x, y, z) - ry, width: 2 * rx, height: 2 * ry };
 }
 
-/** An upright rectangle at one depth: z from z0 to z1, y from y0 to y1. */
+/** An upright rectangle facing the character at one depth: z from z0 to z1, y from y0 to y1 (the camera's small yaw is ignored). */
 function upright(cam: Camera, x: number, z0: number, z1: number, y0: number, y1: number): Rect4 {
+  const zm = (z0 + z1) / 2;
   const left = screenX(cam, x, z0);
   const right = screenX(cam, x, z1);
-  const top = screenY(cam, x, y1);
-  const bottom = screenY(cam, x, y0);
+  const top = screenY(cam, x, y1, zm);
+  const bottom = screenY(cam, x, y0, zm);
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
@@ -448,27 +449,34 @@ function buildWorld(def: SportDef, cam: Camera, width: number, height: number): 
   const hs = def.field.halfSpan;
   const nearX = cam.x + 0.6;
   const floor = Skia.PathBuilder.Make();
-  floor.moveTo(screenX(cam, length, -hs), screenY(cam, length, 0));
-  floor.lineTo(screenX(cam, length, hs), screenY(cam, length, 0));
-  floor.lineTo(screenX(cam, nearX, hs), screenY(cam, nearX, 0));
-  floor.lineTo(screenX(cam, nearX, -hs), screenY(cam, nearX, 0));
+  const nearZ = hs + 2;
+  floor.moveTo(screenX(cam, length, -hs), screenY(cam, length, 0, -hs));
+  floor.lineTo(screenX(cam, length, hs), screenY(cam, length, 0, hs));
+  floor.lineTo(screenX(cam, nearX, nearZ), screenY(cam, nearX, 0, nearZ));
+  floor.lineTo(screenX(cam, nearX, -nearZ), screenY(cam, nearX, 0, -nearZ));
   floor.close();
 
   const edge = Skia.PathBuilder.Make();
-  edge.moveTo(screenX(cam, length, -hs), screenY(cam, length, 0));
-  edge.lineTo(screenX(cam, length, hs), screenY(cam, length, 0));
-  edge.moveTo(screenX(cam, length, -hs), screenY(cam, length, 0));
-  edge.lineTo(screenX(cam, nearX, -hs), screenY(cam, nearX, 0));
-  edge.moveTo(screenX(cam, length, hs), screenY(cam, length, 0));
-  edge.lineTo(screenX(cam, nearX, hs), screenY(cam, nearX, 0));
+  edge.moveTo(screenX(cam, length, -hs), screenY(cam, length, 0, -hs));
+  edge.lineTo(screenX(cam, length, hs), screenY(cam, length, 0, hs));
+  edge.moveTo(screenX(cam, length, -hs), screenY(cam, length, 0, -hs));
+  edge.lineTo(screenX(cam, nearX, -hs), screenY(cam, nearX, 0, -hs));
+  edge.moveTo(screenX(cam, length, hs), screenY(cam, length, 0, hs));
+  edge.lineTo(screenX(cam, nearX, hs), screenY(cam, nearX, 0, hs));
 
-  // A silhouette of stands along the far wall: a band above the far floor edge, with a few steps.
+  // A silhouette of stands along the far wall: a band above the far floor edge, with a step. Drawn as the wall's quads so the
+  // camera's yaw keeps them in perspective.
   const stands = Skia.PathBuilder.Make();
-  const farY = screenY(cam, length, 0);
-  const bandTop = screenY(cam, length, 1.6);
-  stands.addRect({ x: 0, y: bandTop, width, height: farY - bandTop });
-  const stepTop = screenY(cam, length, 2.4);
-  stands.addRect({ x: width * 0.12, y: stepTop, width: width * 0.76, height: bandTop - stepTop });
+  const wallZ = hs + 6;
+  const quad = (yLo: number, yHi: number, zHalf: number) => {
+    stands.moveTo(screenX(cam, length, -zHalf), screenY(cam, length, yHi, -zHalf));
+    stands.lineTo(screenX(cam, length, zHalf), screenY(cam, length, yHi, zHalf));
+    stands.lineTo(screenX(cam, length, zHalf), screenY(cam, length, yLo, zHalf));
+    stands.lineTo(screenX(cam, length, -zHalf), screenY(cam, length, yLo, -zHalf));
+    stands.close();
+  };
+  quad(0, 1.6, wallZ);
+  quad(1.6, 2.4, hs * 0.8);
 
   // The lane: two lines from the character to the target's baseline and the baseline across.
   const lane = Skia.PathBuilder.Make();
@@ -476,11 +484,11 @@ function buildWorld(def: SportDef, cam: Camera, width: number, height: number): 
   const x0 = def.field.origin.x - 0.6;
   const x1 = Math.min(length - 0.2, def.target.center.x + 0.8);
   for (const z of [-laneHalf, laneHalf]) {
-    lane.moveTo(screenX(cam, x0, z), screenY(cam, x0, 0));
-    lane.lineTo(screenX(cam, x1, z), screenY(cam, x1, 0));
+    lane.moveTo(screenX(cam, x0, z), screenY(cam, x0, 0, z));
+    lane.lineTo(screenX(cam, x1, z), screenY(cam, x1, 0, z));
   }
-  lane.moveTo(screenX(cam, x1, -laneHalf), screenY(cam, x1, 0));
-  lane.lineTo(screenX(cam, x1, laneHalf), screenY(cam, x1, 0));
+  lane.moveTo(screenX(cam, x1, -laneHalf), screenY(cam, x1, 0, -laneHalf));
+  lane.lineTo(screenX(cam, x1, laneHalf), screenY(cam, x1, 0, laneHalf));
   void height;
   return { stands: stands.detach(), floor: floor.detach(), floorEdge: edge.detach(), lane: lane.detach() };
 }
@@ -529,7 +537,7 @@ function buildBody(def: SportDef, cam: Camera): BodyPaths {
   const neck = Skia.PathBuilder.Make();
   neck.addRect(upright(cam, x, -0.05 * BODY_H, 0.05 * BODY_H, shoulderY - 0.02 * BODY_H, shoulderY + 0.06 * BODY_H));
 
-  const headR = 0.11 * BODY_H;
+  const headR = 0.095 * BODY_H;
   const headY = 0.89 * BODY_H;
   const headInk = Skia.PathBuilder.Make();
   headInk.addCircle(screenX(cam, x, 0), screenY(cam, x, headY), headR * s + b);
@@ -593,6 +601,7 @@ function buildTarget(def: SportDef, cam: Camera): TargetPaths {
     const px = bx + 0.3;
     poleInk.moveTo(screenX(cam, px, 0), screenY(cam, px, 0));
     poleInk.lineTo(screenX(cam, px, 0), screenY(cam, px, by0 + 0.2));
+    poleInk.lineTo(screenX(cam, bx, 0), screenY(cam, bx, by0 + 0.2));
     // Board with the shooter's square.
     const r = upright(cam, bx, -boardHalf, boardHalf, by0, by1);
     boardInk.addRect({ x: r.x - b, y: r.y - b, width: r.width + 2 * b, height: r.height + 2 * b });
@@ -618,11 +627,11 @@ function buildTarget(def: SportDef, cam: Camera): TargetPaths {
     // Posts and bar at the goal line; the keeper block in front of it.
     const top = 2 * cy;
     for (const z of [-t.halfWidth, t.halfWidth]) {
-      fixedInk.moveTo(screenX(cam, cx, z), screenY(cam, cx, 0));
-      fixedInk.lineTo(screenX(cam, cx, z), screenY(cam, cx, top));
+      fixedInk.moveTo(screenX(cam, cx, z), screenY(cam, cx, 0, z));
+      fixedInk.lineTo(screenX(cam, cx, z), screenY(cam, cx, top, z));
     }
-    fixedInk.moveTo(screenX(cam, cx, -t.halfWidth), screenY(cam, cx, top));
-    fixedInk.lineTo(screenX(cam, cx, t.halfWidth), screenY(cam, cx, top));
+    fixedInk.moveTo(screenX(cam, cx, -t.halfWidth), screenY(cam, cx, top, -t.halfWidth));
+    fixedInk.lineTo(screenX(cam, cx, t.halfWidth), screenY(cam, cx, top, t.halfWidth));
     const kw = t.keeperHalfWidth ?? 0.35;
     const kh = t.keeperHeight ?? 1.9;
     const kx = cx - (t.keeperHalfDepth ?? 0.2);

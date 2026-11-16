@@ -15,13 +15,14 @@ Status: engine, store, play field and panels built and tested; two phone tests d
 - `docs/STATUS.md`: where the project stands and what comes next. Update it when something lands.
 - `docs/architecture.md`: layers, contracts, shot resolution, the live round, agent workflow. Read before writing code.
 - `docs/pacing-report.md`: output of `npm run simulate`. Regenerate after any balance change.
-- `docs/dev-notes.md`: branches, PRs, CI, commit identity, where files go.
+- `docs/dev-notes.md`: branches, PRs, CI, commit identity, where files go, the screenshot tool.
+- `docs/screenshots/`: the latest screenshots from the web build, one set per UI PR.
 
 ## Rules
 
 - Build only what is in Part 1 of `docs/game-design.md`. Ask the owner before building anything from Part 2. When the owner decides an open item, move it from Part 2 to Part 1 and note the date.
 - Never mention the multi-arm characters in the game name, icon or first store screenshot. They are a surprise. In the game they are never announced; see `docs/design-rules.md` section 8.
-- Every screen, asset and line of player-facing text follows `docs/design-rules.md`. A UI PR includes a screenshot and the section 12 checklist.
+- Every screen, asset and line of player-facing text follows `docs/design-rules.md`. A UI PR includes screenshots (`npm run screenshot`, copied into `docs/screenshots/`) and the section 12 checklist.
 - No direct commits to `main`. Branch, pull request, green CI, merge commit. Small commits. Details in `docs/dev-notes.md`.
 - No personal data in this repository: no real names, e-mail addresses, phone numbers or user-profile paths, in files or commit metadata. Commit with the GitHub `noreply` address. CI scans for this.
 - Follow the portfolio layout in `../README.md` (docs/, balance/, tools/, src/). Shared code goes in `../_shared/` later; never change `../neural-tycoon` without the owner's permission.
