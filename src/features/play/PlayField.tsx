@@ -1,7 +1,8 @@
 /**
  * The play field, seen from behind the character (owner decision 2026-11-16): the character fills the lower middle of the screen with its
  * back to the player, the target sits ahead and smaller, balls fly into the picture. One Skia canvas: world, target, character with its
- * procedural limbs, the aim line and cone on the floor, every ball in flight with a flat shadow under it. Ball positions are computed on
+ * procedural limbs, the aim line (the arc a perfect ball flies, owner 2026-11-16) with the spread's edges beside it, every ball in flight
+ * with a flat shadow under it. Ball positions are computed on
  * the UI thread from the segments the engine produced (docs/architecture.md, "The round, live"); React never re-renders per frame.
  * Drag left or right anywhere on the field to aim: the finger's position over the target plane is the aim point. The round is started
  * by the play button (features/round/RoundControls.tsx), not by the drag.
@@ -12,7 +13,7 @@ import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useDerivedValue, useSharedValue } from 'react-native-reanimated';
 
-import { ballDefOf, limbAnchors, muzzleOffsets, spreadDeg, type ShotResult, type SportDef } from '@/engine';
+import { ballDefOf, launchPitch, limbAnchors, muzzleOffsets, spreadDeg, type ShotResult, type SportDef } from '@/engine';
 import { balance, useGame } from '@/store/game';
 import { onShots } from '@/store/shotBus';
 import { border, colors, sportColors } from '@/ui/theme';
@@ -39,6 +40,10 @@ const REACH = 0.55;
 /** Balls nearer than this in front of the shot origin are drawn over the character. */
 const NEAR_DEPTH = 0.35;
 const TWO_PI = 2 * Math.PI;
+/** Points along the aim arc. */
+const ARC_STEPS = 24;
+/** The pitch the engine solves, tabulated over the yaw range for the UI thread (the engine itself stays off that thread). */
+const PITCH_TABLE = 141;
 
 export interface PlayFieldProps {
   width: number;
@@ -64,8 +69,8 @@ export function PlayField({ width, height }: PlayFieldProps) {
   /** Balls past this depth are drawn before the target (behind the board or the goal line). */
   const farDepth = def.target.kind === 'hoop' ? cx + (def.target.backboard?.dx ?? 0) : cx;
 
-  const ball = ballDefOf(balance, sportId, firstBall);
-  const spread = ball ? spreadDeg(balance, accuracy, ball) : balance.upgrades.accuracy.baseSpreadDeg;
+  const ball = ballDefOf(balance, sportId, firstBall) ?? def.balls[0]!;
+  const spread = spreadDeg(balance, accuracy, ball);
   const offsets = useMemo(() => muzzleOffsets(limbs, def, balance), [limbs, def]);
   const anchors = useMemo(() => limbAnchors(limbs, def.limb), [limbs, def.limb]);
 
@@ -220,29 +225,35 @@ export function PlayField({ width, height }: PlayFieldProps) {
     return [{ translateX: z * targetScale }];
   });
 
-  // Aim line and spread cone on the floor, from the character's feet to the target plane, and a ring where the aim point is.
+  // The aim line is the arc a perfect ball flies from the hand to the aim point (owner, third phone test): the engine's own pitch for
+  // the first limb's ball, sampled along the way and projected. The pitch is tabulated over the yaw range on the JS thread whenever the
+  // ball changes; the UI thread interpolates. The spread cone is the same arc swung to the yaw's two edges.
+  const gravity = balance.physics.gravity;
+  const pitchTable = useMemo(() => {
+    const out: number[] = new Array(PITCH_TABLE);
+    for (let i = 0; i < PITCH_TABLE; i++) {
+      const yaw = -MAX_YAW + (2 * MAX_YAW * i) / (PITCH_TABLE - 1);
+      out[i] = launchPitch(def, ball, gravity, dx * Math.tan(yaw));
+    }
+    return out;
+  }, [def, ball, gravity, dx]);
+  const pitchTableSV = useSharedValue<number[]>(pitchTable);
+  const speedSV = useSharedValue(ball.launchSpeed);
+  useEffect(() => {
+    pitchTableSV.value = pitchTable;
+    speedSV.value = ball.launchSpeed;
+  }, [pitchTable, ball.launchSpeed, pitchTableSV, speedSV]);
+  const arcArgs = useMemo(() => ({ cam, ox, oy, dx, gravity }), [cam, ox, oy, dx, gravity]);
   const aimPath = useDerivedValue(() => {
     const p = Skia.PathBuilder.Make();
-    const z = dx * Math.tan(aim.value);
-    p.moveTo(screenX(cam, ox, 0), screenY(cam, ox, 0));
-    p.lineTo(screenX(cam, cx, z), screenY(cam, cx, 0));
-    const rx = 0.3 * targetScale;
-    const ry = rx * flatRatio(cam, cx, 0);
-    const mx = screenX(cam, cx, z);
-    const my = screenY(cam, cx, 0);
-    p.addOval({ x: mx - rx, y: my - ry, width: 2 * rx, height: 2 * ry });
+    appendArc(p, arcArgs, pitchTableSV.value, speedSV.value, aim.value);
     return p.detach();
   });
   const conePath = useDerivedValue(() => {
     const p = Skia.PathBuilder.Make();
     const half = (spreadSV.value * Math.PI) / 180;
-    const fx = screenX(cam, ox, 0);
-    const fy = screenY(cam, ox, 0);
-    for (const d of [-half, half]) {
-      const z = dx * Math.tan(aim.value + d);
-      p.moveTo(fx, fy);
-      p.lineTo(screenX(cam, cx, z), screenY(cam, cx, 0));
-    }
+    appendArc(p, arcArgs, pitchTableSV.value, speedSV.value, aim.value - half);
+    appendArc(p, arcArgs, pitchTableSV.value, speedSV.value, aim.value + half);
     return p.detach();
   });
 
@@ -326,9 +337,6 @@ export function PlayField({ width, height }: PlayFieldProps) {
           <Path path={midBallsInk} color={colors.ink} />
           <Path path={midBalls} color={palette.ball} />
 
-          {/* Aim on the floor */}
-          <Path path={conePath} color={colors.ink} style="stroke" strokeWidth={1.5} opacity={0.35} />
-          <Path path={aimPath} color={colors.accent} style="stroke" strokeWidth={4} strokeCap="round" />
 
           {/* Character from behind: shadow, limbs on the far side, legs, torso, limbs on the near side, head */}
           <Path path={body.shadow} color={colors.ink} opacity={0.22} />
@@ -345,6 +353,10 @@ export function PlayField({ width, height }: PlayFieldProps) {
           <Path path={body.head} color={colors.hair} />
           <Path path={body.ears} color={colors.skin} />
 
+          {/* Aim: the perfect arc from the hand, with the spread's edges */}
+          <Path path={conePath} color={colors.ink} style="stroke" strokeWidth={1.5} opacity={0.35} />
+          <Path path={aimPath} color={colors.accent} style="stroke" strokeWidth={4} strokeCap="round" strokeJoin="round" />
+
           {/* Balls in front of the character */}
           <Path path={nearBallsInk} color={colors.ink} />
           <Path path={nearBalls} color={palette.ball} />
@@ -352,6 +364,44 @@ export function PlayField({ width, height }: PlayFieldProps) {
       </View>
     </GestureDetector>
   );
+}
+
+interface ArcArgs {
+  cam: Camera;
+  ox: number;
+  oy: number;
+  dx: number;
+  gravity: number;
+}
+
+/**
+ * Appends the perfect flight arc for a yaw to a path: from the shot origin to the aim point on the target plane, with the pitch the engine
+ * would use (interpolated from the table). Straight world lines are straight on screen, but a parabola is not, so it is sampled.
+ */
+function appendArc(p: { moveTo(x: number, y: number): unknown; lineTo(x: number, y: number): unknown }, a: ArcArgs, pitches: number[], speed: number, yaw: number): void {
+  'worklet';
+  const clamped = yaw > MAX_YAW ? MAX_YAW : yaw < -MAX_YAW ? -MAX_YAW : yaw;
+  const pos = ((clamped + MAX_YAW) / (2 * MAX_YAW)) * (pitches.length - 1);
+  const i0 = Math.floor(pos);
+  const i1 = i0 + 1 < pitches.length ? i0 + 1 : i0;
+  const frac = pos - i0;
+  const pitch = (pitches[i0] ?? 0) * (1 - frac) + (pitches[i1] ?? 0) * frac;
+  const lateral = a.dx * Math.tan(clamped);
+  const horizontal = Math.sqrt(a.dx * a.dx + lateral * lateral);
+  const vh = speed * Math.cos(pitch);
+  const vy = speed * Math.sin(pitch);
+  const flight = vh > 0 ? horizontal / vh : 0;
+  for (let i = 0; i <= ARC_STEPS; i++) {
+    const f = i / ARC_STEPS;
+    const t = flight * f;
+    const x = a.ox + a.dx * f;
+    const z = lateral * f;
+    const y = a.oy + vy * t - (a.gravity * t * t) / 2;
+    const sx = screenX(a.cam, x, z);
+    const sy = screenY(a.cam, x, y);
+    if (i === 0) p.moveTo(sx, sy);
+    else p.lineTo(sx, sy);
+  }
 }
 
 /** The finger's screen x, read at the target's depth, is the aim point; the yaw follows from it. */
