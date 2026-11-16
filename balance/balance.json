@@ -128,13 +128,14 @@
       },
       "balls": [
         {
+          "_comment": "Launch speeds sit just above the slowest speed that reaches the hoop, so the lob stays on screen (apex about 3.6 m) and the pitch is forgiving; the yaw decides.",
           "id": "foam",
           "name": "Foam ball",
           "cost": 0,
           "value": 1,
           "accuracyPenaltyDeg": 0,
           "fireRateMult": 1.35,
-          "launchSpeed": 9.2,
+          "launchSpeed": 7.6,
           "radiusMult": 0.9
         },
         {
@@ -144,7 +145,7 @@
           "value": 4,
           "accuracyPenaltyDeg": 2.5,
           "fireRateMult": 1.0,
-          "launchSpeed": 9.2,
+          "launchSpeed": 7.7,
           "radiusMult": 1.0
         },
         {
@@ -154,7 +155,7 @@
           "value": 18,
           "accuracyPenaltyDeg": 7,
           "fireRateMult": 0.55,
-          "launchSpeed": 9.4,
+          "launchSpeed": 7.9,
           "radiusMult": 1.15
         }
       ]
