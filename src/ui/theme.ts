@@ -25,10 +25,11 @@ export const colors = {
   /** Safe colored text on paper. */
   goodText: '#2F8A3C',
   badText: '#B83A31',
-  /** The character: skin, shirt, trousers. */
+  /** The character: skin, shirt, trousers, hair (seen from behind, the hair is most of the head). */
   skin: '#E8B890',
   skinShade: '#C9A27A',
   trousers: '#4A5E8A',
+  hair: '#4A3328',
   /** Upgrade card fills: accuracy, fire rate, income. */
   cardAccuracy: '#6FB7F0',
   cardFireRate: '#FF8A3D',

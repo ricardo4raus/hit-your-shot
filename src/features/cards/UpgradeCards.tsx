@@ -1,7 +1,8 @@
 /**
  * The three upgrade cards in the bottom 30% (design rules section 6): equal width, one fill color each, name, a drawn icon, the pips of the
- * current tier, a level badge and one button with the price on it. Always visible and always pressable, during and between rounds.
- * A purchase pops the icon (1.1 and back, 240 ms); Reduce Motion skips the pop. The small "Shop" pill above the cards opens the sheet.
+ * current tier, a level badge and one button with the price on it. Shown between rounds only (the screen slides them away while a round
+ * plays, owner decision 2026-11-16); the buttons stay disabled during a round as a second guard. A purchase pops the icon (1.1 and back,
+ * 240 ms); Reduce Motion skips the pop. The small "Shop" pill above the cards opens the sheet.
  */
 import { useCallback } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
