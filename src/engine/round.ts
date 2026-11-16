@@ -11,7 +11,7 @@
  *   at most balance.physics.maxShotsPerTick in one call, and the round with nextFireAt advanced by 1 / rate for each returned limb
  *   (a limb that is far behind may appear several times in the list, once per missed interval, still within the cap). Never fires at
  *   t >= round.seconds. Never fires when round.finished.
- * - shotInputFor(state, balance, round, limb, aim, t): ShotInput with spreadDeg from upgrades.spreadDeg, offset from limbs.muzzleOffsets,
+ * - shotInputFor(state, balance, round, limb, aim, t): ShotInput (aim = yaw) with spreadDeg from upgrades.spreadDeg, offset from limbs.muzzleOffsets,
  *   valueIfHit from hitValue.
  * - hitValue(state, balance, sportId, ball, doubled) = ball.value × upgrades.incomeMult(income level) × trophies.masteryBonus(state)
  *   × (doubled ? balance.ads.x2RoundMult : 1). Not rounded; money is rounded only for display.

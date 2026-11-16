@@ -1,8 +1,10 @@
 import { parseBalance, type Balance } from '../balance';
-import { positionAt, resolveShot, solveAim, spreadRoll, targetPose } from '../ballistics';
+import { aimPointZ, ballForShot, launchPitch, positionAt, predictYaw, resolveShot, solveAim, spreadRoll, targetPose } from '../ballistics';
 import { createRng } from '../rng';
 import { balance, fixedRng, rng } from '../testing';
-import type { Segment, ShotInput, ShotResult, SportId } from '../types';
+import type { Segment, ShotInput, ShotResult, SportId, Vec3 } from '../types';
+
+const DEG = Math.PI / 180;
 
 /** The default balance with the basketball hoop standing still, for shots that must land exactly where they are aimed. */
 function withStaticHoop(): Balance {
@@ -21,7 +23,7 @@ function withStaticKeeper(): Balance {
 function shot(overrides: Partial<ShotInput> = {}): ShotInput {
   return {
     sport: 'basketball',
-    aim: Math.PI / 4,
+    aim: 0,
     spreadDeg: 0,
     ballId: 'foam',
     offset: 0,
@@ -38,13 +40,18 @@ function ballOf(b: Balance, sport: SportId, id: string) {
   return def;
 }
 
-/** Aim from the sport's origin at a world point with zero spread, through solveAim. */
-function aimAt(b: Balance, sport: SportId, ballId: string, x: number, y: number, arc: 'high' | 'low'): number {
-  const def = b.sports[sport];
-  const ball = ballOf(b, sport, ballId);
-  const aim = solveAim(ball.launchSpeed, b.physics.gravity, x - def.field.origin.x, y - def.field.origin.y, arc);
-  if (aim === null) throw new Error('target out of range');
-  return aim;
+/**
+ * An rng that makes the spread roll a chosen pitch error: the three uniforms give the deviation (+spread for 1, −spread for 0) and the
+ * fourth value 0.25 turns the cone angle to π/2, so the whole deviation goes into the pitch. `pitchErrorRng(1)` with spreadDeg 3 fires 3°
+ * too steep (short), `pitchErrorRng(0)` 3° too flat (long).
+ */
+function pitchErrorRng(sign: 0 | 1) {
+  return fixedRng(sign, sign, sign, 0.25);
+}
+
+/** As above, but the deviation goes into the yaw (cone angle 0). */
+function yawErrorRng(sign: 0 | 1) {
+  return fixedRng(sign, sign, sign, 0);
 }
 
 function expectContiguous(result: ShotResult, input: ShotInput): void {
@@ -64,14 +71,18 @@ function expectFinite(result: ShotResult): void {
   expect(Number.isFinite(result.endSec)).toBe(true);
   expect(Number.isFinite(result.eventSec)).toBe(true);
   for (const s of result.segments) {
-    for (const v of [s.t0, s.t1, s.x, s.y, s.vx, s.vy, s.gy]) expect(Number.isFinite(v)).toBe(true);
+    for (const v of [s.t0, s.t1, s.x, s.y, s.z, s.vx, s.vy, s.vz, s.gy]) expect(Number.isFinite(v)).toBe(true);
   }
 }
 
 /** Position and velocity at the end of a segment, from the segment's own parabola. */
-function endOf(s: Segment): { x: number; y: number; vx: number; vy: number } {
+function endOf(s: Segment): { x: number; y: number; z: number; vx: number; vy: number; vz: number } {
   const tau = s.t1 - s.t0;
-  return { x: s.x + s.vx * tau, y: s.y + s.vy * tau + (s.gy * tau * tau) / 2, vx: s.vx, vy: s.vy + s.gy * tau };
+  return { x: s.x + s.vx * tau, y: s.y + s.vy * tau + (s.gy * tau * tau) / 2, z: s.z + s.vz * tau, vx: s.vx, vy: s.vy + s.gy * tau, vz: s.vz };
+}
+
+function speed2(v: { vx: number; vy: number; vz: number }): number {
+  return v.vx * v.vx + v.vy * v.vy + v.vz * v.vz;
 }
 
 function randomShots(count: number, seed: number, sport: SportId = 'basketball'): ShotInput[] {
@@ -83,7 +94,7 @@ function randomShots(count: number, seed: number, sport: SportId = 'basketball')
     out.push(
       shot({
         sport,
-        aim: r() * (Math.PI / 2),
+        aim: (r() - 0.5) * 120 * DEG,
         spreadDeg: r() * 14,
         ballId: ball?.id ?? def.balls[0]?.id ?? '',
         offset: (r() - 0.5) * 0.8,
@@ -100,41 +111,45 @@ describe('targetPose', () => {
   const goal = balance.sports.football;
   const hole = balance.sports.golf;
 
-  it('moves the hoop on a sine with the given phase and keeps the sensor height', () => {
+  it('slides the hoop sideways on a sine with the given phase and keeps its depth and height', () => {
     const def = hoop.target;
     const p0 = targetPose(hoop, 0, 0);
-    expect(p0.center.x).toBeCloseTo(def.center.x, 12);
+    expect(p0.center.x).toBe(def.center.x);
     expect(p0.center.y).toBe(def.center.y);
+    expect(p0.center.z).toBeCloseTo(0, 12);
     expect(p0.halfWidth).toBe(def.halfWidth);
     expect(p0.keeper).toBeNull();
     const quarter = def.motion.periodSec / 4;
-    expect(targetPose(hoop, quarter, 0).center.x).toBeCloseTo(def.center.x + def.motion.amplitude, 10);
-    expect(targetPose(hoop, 0, Math.PI / 2).center.x).toBeCloseTo(def.center.x + def.motion.amplitude, 10);
-    expect(targetPose(hoop, def.motion.periodSec, 0.3).center.x).toBeCloseTo(targetPose(hoop, 0, 0.3).center.x, 10);
+    expect(targetPose(hoop, quarter, 0).center.z).toBeCloseTo(def.motion.amplitude, 10);
+    expect(targetPose(hoop, 0, Math.PI / 2).center.z).toBeCloseTo(def.motion.amplitude, 10);
+    expect(targetPose(hoop, def.motion.periodSec, 0.3).center.z).toBeCloseTo(targetPose(hoop, 0, 0.3).center.z, 10);
+    expect(targetPose(hoop, quarter, 0).center.x).toBe(def.center.x);
   });
 
   it('keeps a hoop with period 0 still', () => {
     const still = JSON.parse(JSON.stringify(balance)) as Balance;
     still.sports.basketball.target.motion.periodSec = 0;
     const def = parseBalance(still).sports.basketball;
-    expect(targetPose(def, 2.2, 1.1).center.x).toBe(def.target.center.x);
+    expect(targetPose(def, 2.2, 1.1).center.z).toBe(0);
   });
 
-  it('keeps the goal fixed and moves the keeper at half its height', () => {
+  it('keeps the goal fixed and moves the keeper sideways in front of the line at half its height', () => {
     const def = goal.target;
     const p = targetPose(goal, def.motion.periodSec / 4, 0);
-    expect(p.center).toEqual(def.center);
+    expect(p.center).toEqual({ x: def.center.x, y: def.center.y, z: 0 });
     expect(p.keeper).not.toBeNull();
-    expect(p.keeper?.x).toBeCloseTo(def.center.x + def.motion.amplitude, 10);
+    expect(p.keeper?.z).toBeCloseTo(def.motion.amplitude, 10);
+    expect(p.keeper?.x).toBeCloseTo(def.center.x - (def.keeperHalfDepth ?? 0), 12);
     expect(p.keeper?.y).toBe((def.keeperHeight ?? 0) / 2);
   });
 
-  it('places the hole by phase only, static during the round', () => {
+  it('places the hole sideways by phase only, static during the round', () => {
     const def = hole.target;
     const a = targetPose(hole, 0, Math.PI / 2);
     const b = targetPose(hole, 7.3, Math.PI / 2);
-    expect(a.center.x).toBeCloseTo(def.center.x + def.motion.amplitude, 10);
-    expect(b.center.x).toBe(a.center.x);
+    expect(a.center.z).toBeCloseTo(def.motion.amplitude, 10);
+    expect(b.center.z).toBe(a.center.z);
+    expect(a.center.x).toBe(def.center.x);
     expect(a.center.y).toBe(0);
     expect(a.keeper).toBeNull();
   });
@@ -146,10 +161,67 @@ describe('spreadRoll', () => {
     const r = rng(9);
     for (let i = 0; i < 500; i++) {
       const roll = spreadRoll(r, 10);
-      expect(Math.abs(roll)).toBeLessThanOrEqual((10 * Math.PI) / 180);
+      expect(Math.abs(roll)).toBeLessThanOrEqual(10 * DEG);
     }
-    expect(spreadRoll(fixedRng(1, 1, 1), 10)).toBeCloseTo((10 * Math.PI) / 180, 12);
+    expect(spreadRoll(fixedRng(1, 1, 1), 10)).toBeCloseTo(10 * DEG, 12);
     expect(spreadRoll(fixedRng(0.5), 10)).toBeCloseTo(0, 12);
+  });
+});
+
+describe('aim helpers', () => {
+  const def = balance.sports.basketball;
+  const g = balance.physics.gravity;
+  const foam = ballOf(balance, 'basketball', 'foam');
+
+  it('aimPointZ puts yaw 0 on the center line and grows with the tangent, clamped at wild yaws', () => {
+    const dx = def.target.center.x - def.field.origin.x;
+    expect(aimPointZ(def, 0)).toBe(0);
+    expect(aimPointZ(def, 0.3)).toBeCloseTo(dx * Math.tan(0.3), 12);
+    expect(aimPointZ(def, -0.3)).toBeCloseTo(-aimPointZ(def, 0.3), 12);
+    expect(aimPointZ(def, 1.5)).toBe(aimPointZ(def, 3));
+    expect(Number.isFinite(aimPointZ(def, Math.PI / 2))).toBe(true);
+  });
+
+  it('launchPitch lobs into the hoop, kicks flat at the goal, and is steeper for a farther aim point', () => {
+    const pitch = launchPitch(def, foam, g, 0);
+    expect(pitch).toBeGreaterThan(45 * DEG);
+    expect(pitch).toBeLessThan(90 * DEG);
+    // Farther along the side: the high arc flattens toward 45° to reach.
+    expect(launchPitch(def, foam, g, 2)).toBeLessThan(pitch);
+    const goal = balance.sports.football;
+    const kick = launchPitch(goal, ballOf(balance, 'football', 'match'), g, 0);
+    expect(kick).toBeGreaterThan(0);
+    expect(kick).toBeLessThan(45 * DEG);
+    // The solved arc really passes through the target height at the target plane.
+    const dx = def.target.center.x - def.field.origin.x;
+    const t = dx / (foam.launchSpeed * Math.cos(pitch));
+    const y = def.field.origin.y + foam.launchSpeed * Math.sin(pitch) * t - (g * t * t) / 2;
+    expect(y).toBeCloseTo(def.target.center.y, 9);
+  });
+
+  it('launchPitch falls back to 45° when the ball cannot reach', () => {
+    const raw = JSON.parse(JSON.stringify(balance)) as Balance;
+    raw.sports.basketball.balls[0]!.launchSpeed = 1;
+    const slow = parseBalance(raw);
+    expect(launchPitch(slow.sports.basketball, slow.sports.basketball.balls[0]!, g, 0)).toBe(Math.PI / 4);
+  });
+
+  it('predictYaw is 0 for a still target and points at where a moving hoop will be', () => {
+    const still = withStaticHoop().sports.basketball;
+    expect(predictYaw(still, foam, g, 3, 1)).toBe(0);
+    const dx = def.target.center.x - def.field.origin.x;
+    for (const phase of [0, 1, 2.5, 4]) {
+      const yaw = predictYaw(def, foam, g, 0.4, phase);
+      const pitch = launchPitch(def, foam, g, aimPointZ(def, yaw));
+      const flight = Math.hypot(dx, aimPointZ(def, yaw)) / (foam.launchSpeed * Math.cos(pitch));
+      const z = targetPose(def, 0.4 + flight, phase).center.z;
+      expect(aimPointZ(def, yaw)).toBeCloseTo(z, 2);
+    }
+  });
+
+  it('ballForShot names the ball or falls back to the first one', () => {
+    expect(ballForShot(def, 'medicine').id).toBe('medicine');
+    expect(ballForShot(def, 'nope').id).toBe(def.balls[0]?.id);
   });
 });
 
@@ -167,31 +239,45 @@ describe('resolveShot', () => {
     const a = resolveShot(input, rng(1), balance);
     const b = resolveShot(input, rng(2), balance);
     expect(a.segments[0]?.vy).not.toBe(b.segments[0]?.vy);
+    expect(a.segments[0]?.vz).not.toBe(b.segments[0]?.vz);
   });
 
-  it('starts at the origin shifted by the perpendicular offset, with the launch speed', () => {
+  it('starts at the origin shifted sideways by the offset, with the launch speed, converging on the aim point', () => {
     const def = balance.sports.basketball;
     const ball = ballOf(balance, 'basketball', 'regulation');
     const input = shot({ aim: 0, offset: 0.3, ballId: 'regulation' });
     const result = resolveShot(input, rng(), balance);
     const first = result.segments[0];
-    expect(first?.x).toBeCloseTo(def.field.origin.x, 12);
-    expect(first?.y).toBeCloseTo(def.field.origin.y + 0.3, 12);
-    expect(first?.vx).toBeCloseTo(ball.launchSpeed, 12);
-    expect(first?.vy).toBeCloseTo(0, 12);
-    expect(first?.gy).toBe(-balance.physics.gravity);
+    if (!first) throw new Error('no segment');
+    expect(first.x).toBeCloseTo(def.field.origin.x, 12);
+    expect(first.y).toBeCloseTo(def.field.origin.y, 12);
+    expect(first.z).toBeCloseTo(0.3, 12);
+    expect(Math.sqrt(speed2(first))).toBeCloseTo(ball.launchSpeed, 9);
+    // From the right of the spine the ball flies back toward the center line.
+    expect(first.vz).toBeLessThan(0);
+    expect(first.vx).toBeGreaterThan(0);
+    expect(first.gy).toBe(-balance.physics.gravity);
     expect(result.radius).toBeCloseTo(def.ballRadius * ball.radiusMult, 12);
     expect(result.ballId).toBe('regulation');
     expect(result.limb).toBe(0);
   });
 
+  it('a yaw deviation goes sideways, a pitch deviation goes up or down', () => {
+    const straight = resolveShot(shot(), rng(), withStaticHoop()).segments[0]!;
+    const right = resolveShot(shot({ spreadDeg: 5 }), yawErrorRng(1), withStaticHoop()).segments[0]!;
+    const steep = resolveShot(shot({ spreadDeg: 5 }), pitchErrorRng(1), withStaticHoop()).segments[0]!;
+    expect(straight.vz).toBeCloseTo(0, 12);
+    expect(right.vz).toBeGreaterThan(0);
+    expect(right.vy).toBeCloseTo(straight.vy, 9);
+    expect(steep.vz).toBeCloseTo(0, 9);
+    expect(steep.vy).toBeGreaterThan(straight.vy);
+  });
+
   it('hits with a straight shot at the center of a still hoop and pays valueIfHit', () => {
     const b = withStaticHoop();
     const def = b.sports.basketball;
-    // The medicine ball (8.0 m/s) cannot reach the hoop center from the origin, so it is left out here.
-    for (const ballId of ['foam', 'regulation']) {
-      const aim = aimAt(b, 'basketball', ballId, def.target.center.x, def.target.center.y, 'high');
-      const input = shot({ aim, ballId, valueIfHit: 7.5 });
+    for (const ballId of ['foam', 'regulation', 'medicine']) {
+      const input = shot({ aim: 0, ballId, valueIfHit: 7.5 });
       const result = resolveShot(input, rng(), b);
       expect(result.hit).toBe(true);
       expect(result.value).toBe(7.5);
@@ -199,17 +285,25 @@ describe('resolveShot', () => {
       // One flight segment, then the drop through the net.
       expect(result.segments.length).toBe(2);
       const drop = result.segments[1];
-      expect(drop?.vx).toBe(0);
-      expect(drop?.t0).toBe(result.eventSec);
-      expect(result.endSec).toBeCloseTo(result.eventSec + b.physics.hitLingerSec, 12);
-      // The crossing point is on the sensor line and inside the rim.
-      expect(drop?.y).toBeCloseTo(def.target.center.y, 3);
-      expect(Math.abs((drop?.x ?? 0) - def.target.center.x)).toBeLessThan(def.target.halfWidth);
-      // The ball drops straight down through the net and reaches the floor exactly when it stops being drawn.
       if (!drop) throw new Error('no drop segment');
+      expect(drop.vx).toBe(0);
+      expect(drop.vz).toBe(0);
+      expect(drop.t0).toBe(result.eventSec);
+      expect(result.endSec).toBeCloseTo(result.eventSec + b.physics.hitLingerSec, 12);
+      // The crossing point is on the sensor plane and inside the rim.
+      expect(drop.y).toBeCloseTo(def.target.center.y, 3);
+      expect(Math.hypot(drop.x - def.target.center.x, drop.z)).toBeLessThan(def.target.halfWidth);
+      // The ball drops straight down through the net and reaches the floor exactly when it stops being drawn.
       expect(drop.vy).toBeLessThanOrEqual(0);
       expect(endOf(drop).y).toBeCloseTo(result.radius, 9);
       expect(endOf(drop).x).toBe(drop.x);
+    }
+  });
+
+  it('every limb of a wide character hits the still hoop when the aim is on it', () => {
+    const b = withStaticHoop();
+    for (const offset of [-0.6, -0.2, 0.2, 0.6]) {
+      expect(resolveShot(shot({ offset }), rng(), b).hit).toBe(true);
     }
   });
 
@@ -221,37 +315,26 @@ describe('resolveShot', () => {
     const phases = [0, 0.9, 2.1, 3.3, 4.6, 5.8];
     for (const targetPhase of phases) {
       const t0 = 0.4;
-      // Fixed-point iteration: aim at the hoop position at the predicted arrival time.
-      let arrival = t0;
-      let aim = 0;
-      for (let i = 0; i < 12; i++) {
-        const pose = targetPose(def, arrival, targetPhase);
-        const dx = pose.center.x - def.field.origin.x;
-        const solved = solveAim(ball.launchSpeed, g, dx, pose.center.y - def.field.origin.y, 'high');
-        if (solved === null) throw new Error('out of range');
-        aim = solved;
-        arrival = t0 + dx / (ball.launchSpeed * Math.cos(aim));
-      }
-      const result = resolveShot(shot({ aim, t: t0, targetPhase }), rng(), balance);
-      if (result.hit) hits++;
+      const aim = predictYaw(def, ball, g, t0, targetPhase);
+      if (resolveShot(shot({ aim, t: t0, targetPhase }), rng(), balance).hit) hits++;
     }
     expect(hits).toBe(phases.length);
   });
 
   it('misses a hoop when aimed far from it', () => {
-    const result = resolveShot(shot({ aim: 0.1, ballId: 'foam' }), rng(), balance);
+    const result = resolveShot(shot({ aim: 0.5 }), rng(), withStaticHoop());
     expect(result.hit).toBe(false);
     expect(result.value).toBe(0);
   });
 
   it('never scores by passing the sensor upward', () => {
-    // A hoop sitting just above the shot origin: the ball passes up through it right away, then falls back down into it.
+    // A hoop right above the shot origin: the ball goes straight up through it, then falls back down into it.
     const raw = JSON.parse(JSON.stringify(balance)) as Balance;
     raw.sports.basketball.target.motion.amplitude = 0;
     raw.sports.basketball.target.center = { x: raw.sports.basketball.field.origin.x, y: raw.sports.basketball.field.origin.y + 0.5 };
     delete raw.sports.basketball.target.backboard;
     const b = parseBalance(raw);
-    const input = shot({ aim: Math.PI / 2, ballId: 'foam' });
+    const input = shot({ ballId: 'foam' });
     const result = resolveShot(input, rng(), b);
     expect(result.hit).toBe(true);
     // The hit is the downward crossing after the apex, not the first (upward) crossing.
@@ -261,14 +344,17 @@ describe('resolveShot', () => {
   });
 
   it('rests after a shot straight into the floor', () => {
-    const input = shot({ aim: -Math.PI / 2 });
-    const result = resolveShot(input, rng(), balance);
+    // A pitch error of −160° on a 75° lob points the ball at the floor.
+    const input = shot({ spreadDeg: 160 });
+    const result = resolveShot(input, pitchErrorRng(0), balance);
+    expect(result.segments[0]!.vy).toBeLessThan(0);
     expect(result.hit).toBe(false);
     expect(result.value).toBe(0);
     expectContiguous(result, input);
     const last = result.segments[result.segments.length - 1];
     expect(last?.vx).toBe(0);
     expect(last?.vy).toBe(0);
+    expect(last?.vz).toBe(0);
     expect(last?.gy).toBe(0);
     expect(last?.y).toBeCloseTo(result.radius, 12);
     expect(last?.t0).toBe(result.eventSec);
@@ -277,6 +363,17 @@ describe('resolveShot', () => {
     // Every bounce is a new segment and the ball never goes below the floor at a segment start.
     expect(result.segments.length).toBeGreaterThan(2);
     for (const s of result.segments) expect(s.y).toBeGreaterThanOrEqual(result.radius - 1e-12);
+  });
+
+  it('bounces off a side wall', () => {
+    const b = withStaticHoop();
+    const def = b.sports.basketball;
+    const input = shot({ aim: 60 * DEG });
+    const result = resolveShot(input, rng(), b);
+    expectContiguous(result, input);
+    const bounce = result.segments.find((s, i) => i > 0 && s.vz < 0 && (result.segments[i - 1]?.vz ?? 0) > 0);
+    expect(bounce).toBeDefined();
+    expect(bounce?.z).toBeCloseTo(def.field.halfSpan - result.radius, 9);
   });
 
   it('stops at maxFlightSec when the ball is still moving', () => {
@@ -290,7 +387,7 @@ describe('resolveShot', () => {
     s.rimRestitution = 1;
     s.friction = 1;
     const b = parseBalance(raw);
-    const input = shot({ aim: 0.2 });
+    const input = shot({ aim: 0.4 });
     const result = resolveShot(input, rng(), b);
     expect(result.hit).toBe(false);
     expectContiguous(result, input);
@@ -320,11 +417,11 @@ describe('resolveShot', () => {
           const next = segs[i];
           if (!prev || !next) continue;
           const e = endOf(prev);
-          const before = (e.vx * e.vx + e.vy * e.vy) / 2 + g * e.y;
-          const after = (next.vx * next.vx + next.vy * next.vy) / 2 + g * next.y;
+          const before = speed2(e) / 2 + g * e.y;
+          const after = speed2(next) / 2 + g * next.y;
           expect(after).toBeLessThanOrEqual(before + 1e-9);
           // Speed alone never grows either.
-          expect(next.vx * next.vx + next.vy * next.vy).toBeLessThanOrEqual(e.vx * e.vx + e.vy * e.vy + 1e-9);
+          expect(speed2(next)).toBeLessThanOrEqual(speed2(e) + 1e-9);
           contacts++;
         }
       }
@@ -332,48 +429,50 @@ describe('resolveShot', () => {
     expect(contacts).toBeGreaterThan(100);
   });
 
-  it('bounces off the backboard', () => {
+  it('bounces off the backboard when the shot is long', () => {
     const b = withStaticHoop();
     const def = b.sports.basketball;
     const board = def.target.backboard;
     if (!board) throw new Error('hoop has no backboard');
-    // Aim at the middle of the board with a low arc so the ball arrives moving right.
-    const aim = aimAt(b, 'basketball', 'foam', def.target.center.x + board.dx, def.target.center.y + board.yTo / 2, 'low');
-    const input = shot({ aim });
-    const result = resolveShot(input, rng(), b);
+    // A lob 3° too flat overshoots the hoop and meets the board behind it (and banks in).
+    const input = shot({ spreadDeg: 3 });
+    const result = resolveShot(input, pitchErrorRng(0), b);
     const bounce = result.segments.find((s, i) => i > 0 && s.vx < 0 && (result.segments[i - 1]?.vx ?? 0) > 0);
     expect(bounce).toBeDefined();
     expect(bounce?.x).toBeLessThanOrEqual(def.target.center.x + board.dx - result.radius + 1e-9);
+    expect(Math.abs(bounce?.z ?? 0)).toBeLessThanOrEqual(board.halfSpan);
   });
 
-  it('bounces off the rim when aimed at it', () => {
+  it('bounces off the rim when the shot is a little short', () => {
     const b = withStaticHoop();
     const def = b.sports.basketball;
-    const aim = aimAt(b, 'basketball', 'regulation', def.target.center.x - def.target.halfWidth, def.target.center.y, 'high');
-    const input = shot({ aim, ballId: 'regulation' });
-    const result = resolveShot(input, rng(), b);
-    // A new segment starts near the front rim, with the ball pushed out of the rim circle.
+    // Shooting 1.5° too steep lands on the front of the rim.
+    const input = shot({ spreadDeg: 1.5, ballId: 'regulation' });
+    const result = resolveShot(input, pitchErrorRng(1), b);
     const reach = result.radius + (def.target.rimRadius ?? 0);
-    const rimX = def.target.center.x - def.target.halfWidth;
-    const atRim = result.segments.find((s) => Math.hypot(s.x - rimX, s.y - def.target.center.y) < reach + 1e-6);
+    const ringDistance = (s: Segment) => Math.hypot(Math.hypot(s.x - def.target.center.x, s.z) - def.target.halfWidth, s.y - def.target.center.y);
+    const atRim = result.segments.find((s, i) => i > 0 && ringDistance(s) < reach + 1e-6);
     expect(atRim).toBeDefined();
-    expect(Math.hypot((atRim?.x ?? 0) - rimX, (atRim?.y ?? 0) - def.target.center.y)).toBeGreaterThanOrEqual(reach - 1e-9);
+    if (!atRim) return;
+    // The ball sits on the ring surface after the push-out, and on the near side of it.
+    expect(ringDistance(atRim)).toBeGreaterThanOrEqual(reach - 1e-9);
+    expect(atRim.x).toBeLessThan(def.target.center.x);
   });
 
-  it('produces no NaN for any angle in [0, π] in every sport', () => {
+  it('produces no NaN and stays inside the field for any yaw in ±80° in every sport', () => {
     for (const sport of ['basketball', 'football', 'golf'] as SportId[]) {
       const def = balance.sports[sport];
       for (const ball of def.balls) {
-        for (let i = 0; i <= 90; i++) {
-          const input = shot({ sport, aim: (Math.PI * i) / 90, ballId: ball.id, t: 0 });
+        for (let i = 0; i <= 40; i++) {
+          const input = shot({ sport, aim: (-80 + 4 * i) * DEG, ballId: ball.id, t: 0 });
           const result = resolveShot(input, rng(), balance);
           expectFinite(result);
           expectContiguous(result, input);
-          // The ball stays inside the field at every segment start.
           for (const s of result.segments) {
             expect(s.x).toBeGreaterThanOrEqual(result.radius - 1e-9);
-            expect(s.x).toBeLessThanOrEqual(def.field.width - result.radius + 1e-9);
+            expect(s.x).toBeLessThanOrEqual(def.field.length - result.radius + 1e-9);
             expect(s.y).toBeLessThanOrEqual(def.field.height - result.radius + 1e-9);
+            expect(Math.abs(s.z)).toBeLessThanOrEqual(def.field.halfSpan - result.radius + 1e-9);
           }
         }
       }
@@ -386,9 +485,9 @@ describe('resolveShot', () => {
   });
 
   it('positionAt follows the segment math and is false outside the flight', () => {
-    const input = shot({ aim: 0.9, spreadDeg: 6 });
+    const input = shot({ aim: 0.3, spreadDeg: 6 });
     const result = resolveShot(input, rng(8), balance);
-    const out = { x: 0, y: 0 };
+    const out: Vec3 = { x: 0, y: 0, z: 0 };
     expect(positionAt(result.segments, input.t - 1e-6, out)).toBe(false);
     expect(positionAt(result.segments, result.endSec, out)).toBe(false);
     expect(positionAt(result.segments, result.endSec + 1, out)).toBe(false);
@@ -401,6 +500,7 @@ describe('resolveShot', () => {
       const tau = t - s.t0;
       expect(out.x).toBe(s.x + s.vx * tau);
       expect(out.y).toBe(s.y + s.vy * tau + (s.gy * tau * tau) / 2);
+      expect(out.z).toBe(s.z + s.vz * tau);
       checked++;
     }
     expect(checked).toBeGreaterThan(10);
@@ -410,30 +510,30 @@ describe('resolveShot', () => {
       expect(positionAt(result.segments, second.t0, out)).toBe(true);
       expect(out.x).toBe(second.x);
       expect(out.y).toBe(second.y);
+      expect(out.z).toBe(second.z);
     }
   });
 
   it('plays back continuously: no jumps inside a flight segment and small ones at contacts', () => {
-    const input = shot({ aim: 0.6 });
+    const input = shot({ aim: 0.2 });
     const result = resolveShot(input, rng(), balance);
-    const a = { x: 0, y: 0 };
-    const b = { x: 0, y: 0 };
+    const a: Vec3 = { x: 0, y: 0, z: 0 };
+    const b: Vec3 = { x: 0, y: 0, z: 0 };
     for (const s of result.segments) {
       const mid = (s.t0 + s.t1) / 2;
       positionAt(result.segments, mid, a);
       positionAt(result.segments, mid + 1e-4, b);
-      expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeLessThan(0.01);
+      expect(Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z)).toBeLessThan(0.01);
     }
   });
 });
 
 describe('football and golf', () => {
-  it('scores a football goal that passes over the keeper', () => {
+  it('scores a football goal that passes beside the keeper', () => {
     const b = withStaticKeeper();
     const def = b.sports.football;
-    const keeperH = def.target.keeperHeight ?? 0;
-    const y = (keeperH + 2 * def.target.center.y) / 2;
-    const aim = aimAt(b, 'football', 'match', def.target.center.x, y, 'low');
+    const dx = def.target.center.x - def.field.origin.x;
+    const aim = Math.atan2(0.8, dx);
     const input = shot({ sport: 'football', ballId: 'match', aim, valueIfHit: 3 });
     const result = resolveShot(input, rng(), b);
     expect(result.hit).toBe(true);
@@ -441,6 +541,7 @@ describe('football and golf', () => {
     expectContiguous(result, input);
     const net = result.segments[result.segments.length - 1];
     expect(net?.x).toBeCloseTo(def.target.center.x, 6);
+    expect(net?.z).toBeCloseTo(0.8, 1);
     expect(net?.vx).toBe(0);
     expect(net?.vy).toBe(0);
   });
@@ -448,44 +549,51 @@ describe('football and golf', () => {
   it('is blocked by the keeper and bounces back', () => {
     const b = withStaticKeeper();
     const def = b.sports.football;
-    const aim = aimAt(b, 'football', 'match', def.target.center.x, (def.target.keeperHeight ?? 0) / 2, 'low');
-    const input = shot({ sport: 'football', ballId: 'match', aim });
+    const input = shot({ sport: 'football', ballId: 'match', aim: 0 });
     const result = resolveShot(input, rng(), b);
     expect(result.hit).toBe(false);
     expectContiguous(result, input);
     const back = result.segments.find((s) => s.vx < 0);
     expect(back).toBeDefined();
-    expect(back?.x).toBeLessThanOrEqual(def.target.center.x - (def.target.keeperHalfWidth ?? 0) - result.radius + 1e-9);
+    expect(back?.x).toBeLessThanOrEqual(def.target.center.x - 2 * (def.target.keeperHalfDepth ?? 0) - result.radius + 1e-9);
   });
 
   it('misses a football shot over the crossbar', () => {
     const b = withStaticKeeper();
+    // 25° too steep on a 20° kick sends the ball over the goal.
+    const result = resolveShot(shot({ sport: 'football', ballId: 'match', spreadDeg: 25 }), pitchErrorRng(1), b);
+    expect(result.hit).toBe(false);
+  });
+
+  it('misses a football shot wide of the post', () => {
+    const b = withStaticKeeper();
     const def = b.sports.football;
-    const aim = aimAt(b, 'football', 'match', def.target.center.x, 2 * def.target.center.y + 0.5, 'low');
+    const aim = Math.atan2(def.target.halfWidth + 0.5, def.target.center.x - def.field.origin.x);
     const result = resolveShot(shot({ sport: 'football', ballId: 'match', aim }), rng(), b);
     expect(result.hit).toBe(false);
   });
 
-  it('holes a golf shot that drops on the hole', () => {
+  it('holes a golf shot aimed at the hole', () => {
     const def = balance.sports.golf;
     const targetPhase = 0.4;
     const pose = targetPose(def, 0, targetPhase);
-    // The steel ball is the only golf ball whose high arc stays under the 8 m ceiling; aim at the point where the ball touches the floor.
-    const radius = def.ballRadius * ballOf(balance, 'golf', 'steel').radiusMult;
-    const aim = aimAt(balance, 'golf', 'steel', pose.center.x, radius, 'high');
-    const input = shot({ sport: 'golf', ballId: 'steel', aim, targetPhase, valueIfHit: 2 });
-    const result = resolveShot(input, rng(), balance);
-    expect(result.hit).toBe(true);
-    expect(result.value).toBe(2);
-    expectContiguous(result, input);
-    const last = result.segments[result.segments.length - 1];
-    expect(last?.y).toBeCloseTo(radius, 12);
-    expect(last?.vx).toBe(0);
-    expect(Math.abs((last?.x ?? 0) - pose.center.x)).toBeLessThanOrEqual(def.target.halfWidth);
+    const aim = Math.atan2(pose.center.z, pose.center.x - def.field.origin.x);
+    for (const ballId of ['pingpong', 'golf', 'steel']) {
+      const radius = def.ballRadius * ballOf(balance, 'golf', ballId).radiusMult;
+      const input = shot({ sport: 'golf', ballId, aim, targetPhase, valueIfHit: 2 });
+      const result = resolveShot(input, rng(), balance);
+      expect(result.hit).toBe(true);
+      expect(result.value).toBe(2);
+      expectContiguous(result, input);
+      const last = result.segments[result.segments.length - 1];
+      expect(last?.y).toBeCloseTo(radius, 12);
+      expect(last?.vx).toBe(0);
+      expect(Math.hypot((last?.x ?? 0) - pose.center.x, (last?.z ?? 0) - pose.center.z)).toBeLessThanOrEqual(def.target.halfWidth);
+    }
   });
 
-  it('golf shot far from the hole rests on the floor', () => {
-    const input = shot({ sport: 'golf', ballId: 'golf', aim: Math.PI / 3, targetPhase: Math.PI / 2 });
+  it('a golf shot far from the hole rests on the floor', () => {
+    const input = shot({ sport: 'golf', ballId: 'golf', aim: 0.8, targetPhase: Math.PI / 2 });
     const result = resolveShot(input, rng(), balance);
     expect(result.hit).toBe(false);
     expectContiguous(result, input);
@@ -544,26 +652,21 @@ describe('solveAim', () => {
     expect(solveAim(9.2, g, 0, -1, 'low')).toBe(-Math.PI / 2);
   });
 
-  it('round-trips through resolveShot with zero spread', () => {
+  it('the solved pitch round-trips through resolveShot with zero spread', () => {
     const b = withStaticHoop();
     const def = b.sports.basketball;
-    const ball = ballOf(b, 'basketball', 'regulation');
     const target = { x: def.target.center.x, y: def.target.center.y };
-    for (const arc of ['high', 'low'] as const) {
-      const aim = solveAim(ball.launchSpeed, g, target.x - def.field.origin.x, target.y - def.field.origin.y, arc);
-      expect(aim).not.toBeNull();
-      if (aim === null) return;
-      const result = resolveShot(shot({ aim, ballId: 'regulation', t: 0 }), rng(), b);
-      // The first flight segment passes through the target point (before any contact).
-      const first = result.segments[0];
-      if (!first) throw new Error('no segment');
-      const t = (target.x - first.x) / first.vx;
-      const y = first.y + first.vy * t + (first.gy * t * t) / 2;
-      if (t <= first.t1 - first.t0) {
-        expect(y).toBeCloseTo(target.y, 6);
-      }
-      if (arc === 'high') expect(result.hit).toBe(true);
-    }
+    const result = resolveShot(shot({ ballId: 'regulation', t: 0 }), rng(), b);
+    // The first flight segment passes through the target point (before any contact).
+    const first = result.segments[0];
+    if (!first) throw new Error('no segment');
+    const t = (target.x - first.x) / first.vx;
+    const y = first.y + first.vy * t + (first.gy * t * t) / 2;
+    // The segment ends at the interpolated crossing time, a hair before the exact one.
+    expect(t).toBeLessThanOrEqual(first.t1 - first.t0 + 1e-3);
+    expect(y).toBeCloseTo(target.y, 6);
+    expect(first.z + first.vz * t).toBeCloseTo(0, 9);
+    expect(result.hit).toBe(true);
   });
 });
 

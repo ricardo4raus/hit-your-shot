@@ -5,8 +5,8 @@
  * Rules:
  * - incomePerRoundEstimate(state, balance, sportId, ballId, opts): Monte Carlo through the REAL resolver with a fixed seed
  *   (opts.seed, default 7) and opts.samples shots per limb (default 24): for each limb, the shot input as round.shotInputFor would build it
- *   (ballId null = the limb's own ball; otherwise that ball on every limb), aim = ballistics.solveAim at the target's average position
- *   (phase 0, t = 0, 'high' arc for hoop, 'low' for goal and hole; if null, aim 45°), times spread evenly over the round. Hit rate per limb
+ *   (ballId null = the limb's own ball; otherwise that ball on every limb), aim = ballistics.predictYaw at the sample's time (phase 0),
+ *   so the estimate tracks the moving target like an attentive player; times spread evenly over the round. Hit rate per limb
  *   × shots per round per limb (shotsPerSec × roundSeconds) × hitValue (not doubled). Sum over limbs.
  * - Same inputs, same number. Rounded to a whole number.
  * - Cheap enough for the shop: with 24 samples and 8 limbs it must finish in well under 50 ms in Node.
@@ -19,14 +19,14 @@
  * - The shot inputs come from round.shotInputFor itself, called with a throwaway RoundState (phase 0, not doubled) and, when a ball id is
  *   given, a copy of the state with that ball on every limb. The estimate therefore follows every rule of the live round for free.
  * - Sample k of `samples` fires at round time k × roundSeconds / samples, so the first sample is at 0 and the moving target is seen at
- *   evenly spaced phases of its motion. The aim is solved per limb from the limb's ball speed and is not corrected for the limb's
- *   perpendicular offset: the player aims one line for all limbs, so the estimate does too.
+ *   evenly spaced phases of its motion. The yaw is predicted per limb from the limb's ball speed and is not corrected for the limb's
+ *   lateral offset: the player aims one line for all limbs, so the estimate does too.
  * - One rng (createRng(seed)) serves every sample of every limb in order, so the result depends only on the inputs.
  * - A non-positive or non-finite sample count falls back to the default; a sport with zero limbs estimates 0.
  */
 import type { Balance } from './balance';
 import { ballDefOf } from './balance';
-import { resolveShot, solveAim, targetPose, type Arc } from './ballistics';
+import { predictYaw, resolveShot } from './ballistics';
 import { createRng } from './rng';
 import { withSport } from './state';
 import { hitValue, shotInputFor } from './round';
@@ -40,7 +40,6 @@ export interface EstimateOptions {
 
 const DEFAULT_SAMPLES = 24;
 const DEFAULT_SEED = 7;
-const FALLBACK_AIM = Math.PI / 4;
 
 export function incomePerRoundEstimate(state: GameState, balance: Balance, sportId: SportId, ballId: BallId | null, opts: EstimateOptions = {}): number {
   const samples = opts.samples !== undefined && Number.isFinite(opts.samples) && opts.samples > 0 ? Math.floor(opts.samples) : DEFAULT_SAMPLES;
@@ -71,11 +70,6 @@ export function incomePerRoundEstimate(state: GameState, balance: Balance, sport
     finished: false,
   };
 
-  // The target's mean position: phase 0 at t = 0 puts every motion at its center.
-  const pose = targetPose(def, 0, 0);
-  const arc: Arc = def.target.kind === 'hoop' ? 'high' : 'low';
-  const dx = pose.center.x - def.field.origin.x;
-  const dy = pose.center.y - def.field.origin.y;
   const gravity = balance.physics.gravity;
 
   const rng = createRng(seed);
@@ -83,11 +77,11 @@ export function incomePerRoundEstimate(state: GameState, balance: Balance, sport
   for (let limb = 0; limb < sport.limbs; limb++) {
     const ball = ballDefOf(balance, sportId, sport.limbBalls[limb] ?? '') ?? def.balls[0];
     if (ball === undefined) continue;
-    const aim = solveAim(ball.launchSpeed, gravity, dx, dy, arc) ?? FALLBACK_AIM;
 
     let hits = 0;
     for (let k = 0; k < samples; k++) {
       const t = (k * balance.roundSeconds) / samples;
+      const aim = predictYaw(def, ball, gravity, t, round.targetPhase);
       const input = shotInputFor(estimated, balance, round, limb, aim, t);
       if (resolveShot(input, rng, balance).hit) hits++;
     }
