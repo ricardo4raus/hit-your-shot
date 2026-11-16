@@ -4,6 +4,11 @@ node_modules/
 # Expo / Metro
 .expo/
 /dist/
+# CanvasKit for the web preview, copied from node_modules by tools/screenshot.ts
+/public/canvaskit.wasm
+/public/canvaskit.js
+# Raw screenshot output; the chosen ones are copied to docs/screenshots/ and committed
+/screenshots/
 /build/
 web-build/
 expo-env.d.ts

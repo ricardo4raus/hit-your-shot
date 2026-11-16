@@ -2,9 +2,8 @@
  * CONTRACT FILE. Owned by the lead.
  * Service registry. Phase 1 (Expo Go) implementations. Replace entries here in phase 2.
  */
-import Storage from 'expo-sqlite/kv-store';
-
 import type { AdsService, AudioService, PurchaseService, SaveService, Services, SfxId } from './types';
+import { store } from './stringStore';
 
 export * from './types';
 
@@ -13,31 +12,31 @@ const BACKUP_KEY = 'hit-your-shot/save-backup';
 const BACKUP_EVERY_MS = 60_000;
 let lastBackupAt = 0;
 
-/** Save in SQLite key-value storage (works in Expo Go, synchronous). Keeps an older backup copy, at most once a minute. */
+/** Save in the platform's synchronous string store (SQLite on the phone, localStorage on the web preview). Keeps an older backup copy, at most once a minute. */
 export const kvSave: SaveService = {
   load() {
-    return Storage.getItemSync(SAVE_KEY) ?? null;
+    return store.get(SAVE_KEY);
   },
   loadBackup() {
-    return Storage.getItemSync(BACKUP_KEY) ?? null;
+    return store.get(BACKUP_KEY);
   },
   save(data) {
     try {
       const now = Date.now();
       if (now - lastBackupAt >= BACKUP_EVERY_MS) {
-        const previous = Storage.getItemSync(SAVE_KEY);
-        if (previous) Storage.setItemSync(BACKUP_KEY, previous);
+        const previous = store.get(SAVE_KEY);
+        if (previous) store.set(BACKUP_KEY, previous);
         lastBackupAt = now;
       }
-      Storage.setItemSync(SAVE_KEY, data);
+      store.set(SAVE_KEY, data);
     } catch (e) {
       console.warn('save failed', e);
     }
   },
   clear() {
     try {
-      Storage.removeItemSync(SAVE_KEY);
-      Storage.removeItemSync(BACKUP_KEY);
+      store.remove(SAVE_KEY);
+      store.remove(BACKUP_KEY);
     } catch (e) {
       console.warn('clear failed', e);
     }
