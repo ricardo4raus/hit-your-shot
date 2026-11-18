@@ -16,6 +16,7 @@ import { runOnJS, useDerivedValue, useSharedValue } from 'react-native-reanimate
 import { ballDefOf, launchPitch, limbAnchors, limbRates, muzzleOffsets, spreadDeg, type ShotResult, type SportDef } from '@/engine';
 import { balance, useGame } from '@/store/game';
 import { onShots } from '@/store/shotBus';
+import { pulseMoney } from '@/ui/feedback';
 import { border, colors, sportColors } from '@/ui/theme';
 
 import { flatRatio, makeCamera, scaleAt, screenX, screenY, worldZ, type Camera } from './camera';
@@ -30,6 +31,14 @@ interface BallRec {
 }
 
 const SEG = 9;
+/** A hit on the UI thread: wall time of the sensor crossing and the target's lateral position then. */
+interface HitRec {
+  atMs: number;
+  z: number;
+}
+/** How long the hit feedback lasts, seconds, and how many hits are kept. */
+const HIT_SEC = 0.6;
+const MAX_HITS = 64;
 /** Packed batch layout per shot: [end, r, segmentCount, then segmentCount × SEG numbers]. One flat array crosses to the UI thread per tick. */
 const HEAD = 3;
 const MAX_BALLS = balance.physics.maxBallsInFlight;
@@ -92,6 +101,7 @@ export function PlayField({ width, height }: PlayFieldProps) {
   // Shared values the UI thread reads every frame.
   const clock = useClock();
   const balls = useSharedValue<BallRec[]>([]);
+  const hits = useSharedValue<HitRec[]>([]);
   const aim = useSharedValue(0);
   const spreadSV = useSharedValue(spread);
   const phase = useSharedValue(0);
@@ -145,6 +155,31 @@ export function PlayField({ width, height }: PlayFieldProps) {
           packed[o++] = g.gy;
         }
       }
+      // Hits: when and where (the target's lateral position at the crossing) for the swish, the coins and the pill's pop.
+      const m = def.target.motion;
+      const roundPhase = useGame.getState().round?.targetPhase ?? 0;
+      const newHits: HitRec[] = [];
+      for (const s of batch) {
+        if (!s.hit) continue;
+        const z = m.periodSec > 0 ? m.amplitude * Math.sin((TWO_PI * s.eventSec) / m.periodSec + roundPhase) : m.amplitude * Math.sin(roundPhase);
+        newHits.push({ atMs: startMs + s.eventSec * 1000, z });
+      }
+      if (newHits.length > 0) {
+        pulseMoney(Date.now());
+        hits.modify((list) => {
+          'worklet';
+          const now = Date.now();
+          let w = 0;
+          for (let i = 0; i < list.length; i++) {
+            const h = list[i]!;
+            if (now - h.atMs < HIT_SEC * 1000) list[w++] = h;
+          }
+          list.length = w;
+          for (let i = 0; i < newHits.length; i++) list.push(newHits[i]!);
+          if (list.length > MAX_HITS) list.splice(0, list.length - MAX_HITS);
+          return list;
+        });
+      }
       const count = batch.length;
       balls.modify((list) => {
         'worklet';
@@ -168,7 +203,48 @@ export function PlayField({ width, height }: PlayFieldProps) {
         return list;
       });
     });
-  }, [balls]);
+  }, [balls, hits, def]);
+
+  // Hit feedback (design rules section 9, "Hit"): the net swishes, a ring spreads from the rim and fades, a coin pops up from the
+  // hoop and fades, the money pill pops (ui/feedback.ts). All from the hit records, on the UI thread.
+  const hitPaths = useDerivedValue(() => {
+    clock.value;
+    const nowMs = Date.now();
+    const list = hits.value;
+    const rings = Skia.PathBuilder.Make();
+    const coins = Skia.PathBuilder.Make();
+    const coinsInk = Skia.PathBuilder.Make();
+    let swish = 0;
+    const cy = def.target.center.y;
+    for (let i = 0; i < list.length; i++) {
+      const h = list[i]!;
+      const age = (nowMs - h.atMs) / 1000;
+      if (age < 0 || age >= HIT_SEC) continue;
+      const u = age / HIT_SEC;
+      const s = scaleAt(cam, cx, h.z);
+      const rx = def.target.halfWidth * s * (1 + 1.2 * u);
+      const ry = rx * flatRatio(cam, cx, cy, h.z);
+      const mx = screenX(cam, cx, h.z);
+      const my = screenY(cam, cx, cy, h.z);
+      if (u < 0.5) rings.addOval({ x: mx - rx, y: my - ry, width: 2 * rx, height: 2 * ry });
+      // The coin rises from the rim and shrinks away.
+      const rise = 0.9 * s * u;
+      const cr = 0.11 * s * (1 - 0.6 * u);
+      coinsInk.addCircle(mx, my - 0.3 * s - rise, cr + border.width);
+      coins.addCircle(mx, my - 0.3 * s - rise, cr);
+      // The net: a quick bulge that settles in 350 ms.
+      if (age < 0.35) {
+        const w = Math.sin((Math.PI * age) / 0.35) * (1 - age / 0.35);
+        if (w > swish) swish = w;
+      }
+    }
+    return { rings: rings.detach(), coins: coins.detach(), coinsInk: coinsInk.detach(), swish };
+  });
+  const hitRings = useDerivedValue(() => hitPaths.value.rings);
+  const hitCoins = useDerivedValue(() => hitPaths.value.coins);
+  const hitCoinsInk = useDerivedValue(() => hitPaths.value.coinsInk);
+  const rimY = screenY(cam, cx, def.target.center.y);
+  const netTransform = useDerivedValue(() => [{ translateY: rimY }, { scaleY: 1 + 0.35 * hitPaths.value.swish }, { translateY: -rimY }]);
 
   // Every ball in flight, rebuilt on the UI thread each frame from the engine's segments and sorted into three depth groups so the
   // target and the character occlude correctly: far (behind the board), mid, near (in front of the character). Each group is an ink
@@ -283,8 +359,8 @@ export function PlayField({ width, height }: PlayFieldProps) {
   // The character, posed by the rig every frame in its own frame (x forward from the shot origin, y up, z right), then projected.
   // Seen from behind, the arms anchored on the back are nearest to the camera and are drawn over the torso; the others under it.
   const bodyScale = scaleAt(cam, ox);
-  const armStroke = Math.max(7, 0.075 * BODY_H * bodyScale);
-  const legStroke = Math.max(9, 0.12 * BODY_H * bodyScale);
+  const armStroke = Math.max(6, 0.06 * BODY_H * bodyScale);
+  const legStroke = Math.max(8, 0.1 * BODY_H * bodyScale);
   const bodyPaths = useDerivedValue(() => {
     clock.value;
     const nowMs = Date.now();
@@ -471,11 +547,18 @@ export function PlayField({ width, height }: PlayFieldProps) {
             <Path path={target.boardInk} color={colors.ink} />
             <Path path={target.board} color={colors.paper} />
             <Path path={target.boardMark} color={colors.ink} style="stroke" strokeWidth={2} />
-            <Path path={target.net} color={colors.paper} style="stroke" strokeWidth={2} />
+            <Group transform={netTransform}>
+              <Path path={target.net} color={colors.paper} style="stroke" strokeWidth={2} />
+            </Group>
             <Path path={target.rim} color={colors.ink} style="stroke" strokeWidth={target.rimWidth + 2 * border.width} />
             <Path path={target.rim} color={palette.target} style="stroke" strokeWidth={target.rimWidth} />
             <Path path={target.block} color={colors.ink} />
           </Group>
+
+          {/* Hit feedback: the ring from the rim, the coins */}
+          <Path path={hitRings} color={palette.target} style="stroke" strokeWidth={border.width} opacity={0.7} />
+          <Path path={hitCoinsInk} color={colors.ink} />
+          <Path path={hitCoins} color={colors.good} />
 
           {/* Balls between the target and the character */}
           <Path path={midBallsInk} color={colors.ink} />
