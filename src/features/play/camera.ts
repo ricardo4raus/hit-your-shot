@@ -26,14 +26,14 @@ export interface Camera {
 }
 
 /** Meters the camera stands behind the shot origin. */
-const CAM_BACK = 3.0;
+const CAM_BACK = 3.8;
 /** Meters the camera stands to the right of the character: it looks over the right shoulder. */
-const CAM_SIDE = 0.9;
+const CAM_SIDE = 1.0;
 /** Camera height: a little below the character's eyes, so the hoop is clearly above and the floor clearly below. */
 const CAM_HEIGHT = 1.5;
 /** The horizon sits at this fraction of the field height from the top. */
 const HORIZON_FRACTION = 0.5;
-/** Focal length as a fraction of the field height: the character (3 m away) spans a little under half the height. */
+/** Focal length as a fraction of the field height: the character (3.8 m away) spans about 37% of the height (owner 2026-11-19: smaller). */
 const FOCAL_FRACTION = 0.8;
 /** Nothing closer than this is projected (it would blow up); points in front of it are clamped to it. */
 const MIN_DEPTH = 0.4;

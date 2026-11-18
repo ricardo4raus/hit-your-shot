@@ -1,7 +1,8 @@
 /**
  * What sits above the upgrade cards between rounds (owner decision 2026-11-16): no panel. The character simply stops shooting, the cards
- * come back, and above them, centered, one play button. After a round the money it made stands over the button in display lettering,
- * tilted 4 degrees (this screen's one odd choice), with "NEW!" beside it on a best round and the commentator's line under it. The ×2 offer
+ * come back, and above them, centered, one play button. After a round the money it made stands over the button as the coin and plain
+ * digits in a pill (owner 2026-11-19: no display lettering for money), with "NEW!" hanging crooked beside it on a best round (this
+ * screen's one odd choice) and the commentator's line under it. The ×2 offer
  * is a small second button. The line sits in a paper pill like the money counter, because the character's shirt is behind it; a pill is
  * not a panel. Everything fades and rises in 280 ms with ease-out; Reduce Motion fades only. Touches outside the buttons
  * fall through to the play field so the player can keep aiming.
@@ -11,9 +12,9 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { strings } from '@/content/strings';
-import { canWatchX2, formatMoney } from '@/engine';
+import { canWatchX2 } from '@/engine';
 import { balance, useGame } from '@/store/game';
-import { AppText, OutlinedText, Pill, StickerButton, colors, motion, space } from '@/ui';
+import { AppText, Money, OutlinedText, Pill, StickerButton, colors, motion, space } from '@/ui';
 
 export interface RoundControlsProps {
   /** Distance from the bottom of the screen to the top of the cards. */
@@ -68,9 +69,9 @@ function ControlsBody({ bottom }: RoundControlsProps) {
       <Animated.View style={[styles.column, rise]} pointerEvents="box-none">
         {result ? (
           <View style={styles.resultRow} pointerEvents="none">
-            <OutlinedText variant="displaySm" color={colors.paper} style={styles.tilt}>
-              {formatMoney(result.money)}
-            </OutlinedText>
+            <Pill style={styles.moneyPill}>
+              <Money amount={result.money} size="lg" plus />
+            </Pill>
             {result.newBest ? (
               <View style={styles.newTag} accessibilityLabel={strings.round.best}>
                 <OutlinedText variant="displaySm" color={colors.cash} stroke={2}>
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: space.lg, right: space.lg, alignItems: 'center' },
   column: { alignItems: 'center', gap: space.sm },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  tilt: { transform: [{ rotate: '-4deg' }], paddingHorizontal: space.xs },
+  moneyPill: { paddingVertical: 6, paddingHorizontal: 16 },
   newTag: { transform: [{ rotate: '6deg' }] },
   linePill: { maxWidth: 320, paddingVertical: 4 },
   line: { flexShrink: 1 },

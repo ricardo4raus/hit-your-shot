@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'rea
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
 import { lightHaptic } from './feedback';
+import { Money } from './money';
 import { AppText, type TextVariant } from './text';
 import { border, colors, motion, radius, touch } from './theme';
 
@@ -34,8 +35,10 @@ export function Sticker({ children, color = colors.paper, rounded = 'card', styl
 
 export interface StickerButtonProps {
   title: string;
-  /** Second line, usually the price. */
+  /** Second line of text. */
   subtitle?: string;
+  /** A price as the second line: the coin and the digits. Wins over subtitle. */
+  money?: number;
   color?: string;
   textColor?: string;
   disabled?: boolean;
@@ -56,6 +59,7 @@ const PRESSED_SCALE = 0.96;
 export function StickerButton({
   title,
   subtitle,
+  money,
   color = colors.accent,
   textColor = colors.ink,
   disabled,
@@ -100,7 +104,9 @@ export function StickerButton({
             <AppText variant={variant} color={textColor} center numberOfLines={1}>
               {title}
             </AppText>
-            {subtitle ? (
+            {money !== undefined ? (
+              <Money amount={money} size="sm" color={textColor} />
+            ) : subtitle ? (
               <AppText variant="caption" color={textColor} center numberOfLines={1} tabular>
                 {subtitle}
               </AppText>

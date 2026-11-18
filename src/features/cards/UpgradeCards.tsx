@@ -104,7 +104,7 @@ function UpgradeCard({ id }: UpgradeCardProps) {
       </View>
       <StickerButton
         title={maxed ? strings.upgrades.max : strings.upgrades.upgrade}
-        subtitle={maxed ? undefined : formatMoney(cost)}
+        money={maxed ? undefined : cost}
         color={colors.paper}
         disabled={!affordable || playing}
         size="sm"

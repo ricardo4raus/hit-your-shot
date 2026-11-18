@@ -109,3 +109,11 @@ Verified on the owner's phone before this change: balls visible with outlines (f
 | The cycle is **squeezed into the fire period** when shots come faster than 0.95 s apart. | A fast arm must pump, not freeze or skip the dip. The release always sits at the engine's fire time. |
 | The hold is the ball at the chin with elbows out; the torso is a trapezoid that leans into the dip. | From behind, a ball held at the chest hides behind the back; at the chin the forearms show beside the torso and the dip reads. |
 | Still open for the owner to judge from the screenshots and the next phone test: whether the code character is good enough or body parts should be commissioned (plan step 4 of 2026-11-16). | The rig stays either way; an artist would replace the shapes, not the motion. |
+
+## 2026-11-19, fourth phone test (owner)
+
+| Decision | Reason / note |
+|---|---|
+| **Hit feedback.** Net swish, a ring spreading from the rim, a green coin popping up from the hoop, the money pill popping. | Owner: "no feedback when a ball goes through the ring". Per design rules section 9; sound still missing. |
+| **Smaller, slimmer character.** Camera 3.8 m back (was 3.0), torso 0.26 m wide (was 0.30), thinner arms and legs, smaller head. | Owner: "too big and too fat". |
+| **Money as a green coin and plain digits**, never display lettering: pill, prices on buttons, round result, shop, offline panel. `cash` yellow stays for "NEW!" only. | Owner: "the 3D money font or style is not good; a green money icon that makes sense and the numbers like a normal mobile game". |

@@ -1,5 +1,21 @@
-/** Haptics behind the player's setting. Never throws. The setting is read through a getter so this file does not import the store. */
+/**
+ * Haptics behind the player's setting, and the money pill's pop. Never throws. The setting is read through a getter so this file does
+ * not import the store.
+ */
 import * as Haptics from 'expo-haptics';
+import { makeMutable, withSequence, withTiming } from 'react-native-reanimated';
+
+/** Scale of the money pill; the play field pops it on a hit, the top bar animates with it. */
+export const moneyPulse = makeMutable(1);
+let lastPulseAt = 0;
+const PULSE_MIN_GAP_MS = 110;
+
+/** A hit happened: the money pill pops 1.12 and settles. Throttled, so a flood of hits is one steady pulse. */
+export function pulseMoney(now: number): void {
+  if (now - lastPulseAt < PULSE_MIN_GAP_MS) return;
+  lastPulseAt = now;
+  moneyPulse.value = withSequence(withTiming(1.12, { duration: 70 }), withTiming(1, { duration: 160 }));
+}
 
 let enabled = (): boolean => true;
 

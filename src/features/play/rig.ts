@@ -26,7 +26,7 @@ export const BODY_H = 1.75;
 const HIP_Y = 0.5;
 const SHOULDER_Y = 0.8;
 const HEAD_Y = 0.9;
-export const HEAD_R = 0.095;
+export const HEAD_R = 0.09;
 const UPPER_ARM = 0.19;
 const FOREARM = 0.17;
 const HAND = 0.085;
@@ -34,7 +34,7 @@ const THIGH = 0.25;
 const SHIN = 0.25;
 const FOOT = 0.11;
 const HIP_HALF = 0.1;
-export const TORSO_HALF = 0.15;
+export const TORSO_HALF = 0.13;
 /** How far the hips drop at a full knee bend, in body units. */
 const DIP_DROP = 0.08;
 /** How far the shoulders move forward at a full dip. */
