@@ -49,10 +49,15 @@ export function formatNumber(x: number, decimals = 2): string {
   return text + SUFFIXES[tier];
 }
 
-/** "$12", "$1.50K". Whole dollars below 1000 (the game has no cents). */
+/** "12", "1.50K": money as digits, shown next to the coin icon (ui/money.tsx). Whole amounts below 1000 (the game has no cents). */
+export function formatAmount(x: number): string {
+  if (Number.isFinite(x) && Math.abs(x) < 1000) return formatNumber(Math.round(x), 0);
+  return formatNumber(x, 2);
+}
+
+/** "$12", "$1.50K": money for text and accessibility labels. On screen, money is the coin icon plus formatAmount. */
 export function formatMoney(x: number): string {
-  if (Number.isFinite(x) && Math.abs(x) < 1000) return '$' + formatNumber(Math.round(x), 0);
-  return '$' + formatNumber(x, 2);
+  return '$' + formatAmount(x);
 }
 
 /** "12.5" for percentages and multipliers: at most one decimal, no trailing zero. */

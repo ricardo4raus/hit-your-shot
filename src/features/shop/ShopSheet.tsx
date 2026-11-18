@@ -9,7 +9,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { strings } from '@/content/strings';
 import { characterCost, characterName, formatMoney, incomePerRoundEstimate, type BallDef, type SportId } from '@/engine';
 import { balance, selectSport, selectSportId, useGame } from '@/store/game';
-import { AppText, Pill, Sticker, StickerButton, border, colors, radius, space, sportColors, touch } from '@/ui';
+import { AppText, Money, Pill, Sticker, StickerButton, border, colors, radius, space, sportColors, touch } from '@/ui';
 import { CloseGlyph } from '@/ui/glyphs';
 import { Sheet } from '@/ui/sheet';
 
@@ -91,9 +91,7 @@ function ShopContent({ onClose }: ShopContentProps) {
       <View style={styles.header}>
         <AppText variant="title">{strings.shop.title}</AppText>
         <Pill style={styles.moneyPill}>
-          <AppText variant="label" tabular accessibilityLabel={`Money ${formatMoney(sport.money)}`}>
-            {formatMoney(sport.money)}
-          </AppText>
+          <Money amount={sport.money} size="md" />
         </Pill>
         <Pressable
           onPress={onClose}
@@ -138,7 +136,7 @@ function ShopContent({ onClose }: ShopContentProps) {
               </View>
               <StickerButton
                 title={strings.shop.buy}
-                subtitle={formatMoney(trainerCost)}
+                money={trainerCost}
                 color={colors.paper}
                 size="sm"
                 disabled={sport.money < trainerCost}
@@ -213,7 +211,7 @@ function BallRow({ ball, sportId, estimate, money, owned, onFirstLimb, onEveryLi
       {!owned ? (
         <StickerButton
           title={strings.shop.buy}
-          subtitle={formatMoney(ball.cost)}
+          money={ball.cost}
           color={colors.paper}
           size="sm"
           disabled={money < ball.cost}

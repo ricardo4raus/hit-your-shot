@@ -5,9 +5,8 @@
 import { StyleSheet, View } from 'react-native';
 
 import { strings } from '@/content/strings';
-import { formatMoney } from '@/engine';
 import { useGame, type OfflineView } from '@/store/game';
-import { AppText, OutlinedText, Sticker, StickerButton, colors, space } from '@/ui';
+import { AppText, Money, Sticker, StickerButton, colors, space } from '@/ui';
 import { ScrimCenter } from '@/ui/sheet';
 
 import { formatTimeAway } from './timeAway';
@@ -40,9 +39,7 @@ function OfflineBody({ offline }: OfflineBodyProps) {
         <AppText variant="title" center>
           {strings.offline.title}
         </AppText>
-        <OutlinedText variant="display" color={colors.cash} center style={styles.money}>
-          {formatMoney(offline.money)}
-        </OutlinedText>
+        <Money amount={offline.money} size="lg" plus style={styles.money} />
         <AppText variant="body" center>
           {strings.offline.away(formatTimeAway(offline.seconds))}
         </AppText>
