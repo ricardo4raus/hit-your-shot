@@ -50,7 +50,7 @@ Tokens (to be copied into the theme file when code starts). Names describe the j
 | `sky` | `#C9DCE8` | the default world background top |
 | `haze` | `#A9C2D4` | silhouettes in the far background |
 | `accent` | `#FF8A3D` | the one action button, the aiming line, "you should press this" |
-| `cash` | `#FFC83D` | money and only money |
+| `cash` | `#FFC83D` | the "NEW!" tag and the display lettering's fill; money itself is the green coin (`good`) with plain digits, owner 2026-11-19 |
 | `good` | `#5CC96A` | a hit, a success toast, a maxed bar |
 | `bad` | `#E8564B` | a miss marker, a destructive confirmation |
 | `arm` | `#B07CF0` | reserved: anything about characters and arms, so the reveal has its own color |
@@ -79,6 +79,7 @@ Rules:
 - **Display:** Lilita One (SIL Open Font License, free). Used for: sport names, "NEW!", the round result number, the price on a button. Always with an `ink` outline (text stroke 2 px, or a duplicated layer offset by 1 px in four directions), always short, never a sentence.
 - **Interface:** Nunito (Open Font License). Weights: 700 for labels and numbers, 600 for body. No other weights.
 - Numbers that change every frame (money during a round) sit left-aligned in a fixed-width box, so the text does not jump when digits change. Nunito has tabular figures; use them.
+- **Money is never display lettering** (owner 2026-11-19: "the 3D money font is not good; a green money icon and the numbers like a normal mobile game"). Everywhere money appears it is the green coin (`src/ui/money.tsx`: `good` disc, ink outline, dollar sign) followed by plain bold Nunito digits: the pill, prices on buttons, the round's result, the shop. Display lettering is for sport names and "NEW!" only.
 - ALL CAPS only in the display font, and only for one or two words. Labels and body are sentence case.
 - Minimum sizes: 14 pt body, 16 pt labels on buttons, 28 pt display. Nothing on screen is smaller than 12 pt, ever, including the pips' tiny numbers, which do not exist.
 - No Inter, Roboto, Poppins, Montserrat, SF Pro or system default anywhere. If a font is not installed, the screen is not finished.
@@ -92,9 +93,9 @@ Rules:
 - The play field fills the **whole screen**, seen **from behind the character** (owner decision 2026-11-16, like the first reference). The camera stands behind the character's right shoulder and looks at the target: the target sits on the screen's center line, the character stands **left of center** with its back to the player and takes a little under half the height, its legs run under the cards. From dead behind, the shooting hand hid behind the head and the ball's arc was a vertical line; the shoulder view (first screenshots, 2026-11-16) shows both. The camera never moves. Numbers in `src/features/play/camera.ts`.
 - Money sits top center in a `paper` pill with an `ink` outline. Nothing else is in the top bar during a round. Settings is a small ghost button top right.
 - The upgrade cards sit over the bottom 30%: three cards, equal width, each with name, icon, pips, and one button that shows the price. **The cards exist only between rounds** (owner decision 2026-11-16): they slide away when a round starts and come back when it ends. Buying happens only between rounds (owner decision 2026-11-15); the buttons stay disabled during a round as a second guard. The button is `paper2` and flat when unaffordable, and filled when it can be pressed.
-- Between rounds **one play button** stands centered above the cards. After a round the money it made stands over the button in display lettering, "NEW!" beside it on a best round, the commentator's line under it. **No panel, no card** (owner decision 2026-11-16): the character stopping is the signal that the round is over.
+- Between rounds **one play button** stands centered above the cards. After a round the money it made stands over the button as the coin and digits in a pill, "NEW!" beside it on a best round, the commentator's line under it. **No panel, no card** (owner decision 2026-11-16): the character stopping is the signal that the round is over.
 - Empty space is allowed and wanted. If a screen feels empty, that is the background's job to fix with haze, not the interface's job to fix with widgets.
-- Every screen has **one odd choice**: something off-grid, oversized or tilted that a template would not do. On the play screen it is the character cut by the left edge and the bottom, a big back in the foreground against a small basket, with the round's money tilted 4 degrees over the button. The "NEW!" tag hangs crooked beside it. One per screen, never three.
+- Every screen has **one odd choice**: something off-grid, oversized or tilted that a template would not do. On the play screen it is the character cut by the bottom edge, a back in the foreground against a small basket, and the "NEW!" tag hanging crooked beside the round's money. One per screen, never three.
 
 **Why:** generated layouts center everything and fill every gap, because that is the average of all layouts. This screen does center its button, because the owner wants the thumb to find it without looking, and the camera behind the character makes the center the natural line of play. So the deliberate choice moved from position to scale. The "one odd choice" rule forces a decision on every screen; a decision is exactly what slop lacks.
 
@@ -135,7 +136,7 @@ Everything the player does gets a reaction within 100 ms. Everything the game do
 | Press a button | scales to 0.96 | 90 ms down, 160 ms up, spring with slight overshoot |
 | Drag the aim line | the perfect arc follows the finger with no smoothing; the two spread arcs follow | immediate |
 | Ball leaves the hand | ball stretches 1.15 along the direction of travel for 2 frames | 40 ms |
-| Hit | target reacts (net swish, flag wobble, net bulge), ball squashes 0.8, `+$` text flies up and fades, coin pops toward the money pill | reaction 200 ms, text 500 ms |
+| Hit | the net swishes (350 ms), a ring spreads from the rim and fades (300 ms), a green coin pops up from the hoop and shrinks away (600 ms), the money pill pops 1.12 (owner 2026-11-19: "no feedback when a ball goes through") | as listed |
 | Miss | ball bounces with correct physics, a small dust puff where it lands, no text | physics |
 | Round starts | the cards slide down out of the way; the play button fades | 280 ms, ease-out |
 | Round ends | the character stops; the cards slide back; the money, the line and the play button rise 24 pt and fade in above them | 280 ms, ease-out, no bounce |

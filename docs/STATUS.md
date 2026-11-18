@@ -21,6 +21,7 @@ Where the project stands and what comes next. Updated 2026-11-16.
 - Screenshot tool (`npm run screenshot`): exports the web build, opens it in headless Chrome at phone size and writes PNGs of idle,
   aiming, the first shots, mid-round and the result. The lead now sees the game before the owner does. The web build runs the real app
   (CanvasKit for Skia, localStorage for the save).
+- Hit feedback (2026-11-19): net swish, rim ring, coin pop and the money pill's pop. Money everywhere as the green coin plus digits.
 - Phone tests: 2026-11-15 (aiming and shooting work; balls were invisible, fixed), 2026-11-16 morning (balls visible; the owner asked
   for the third-person view and the new round flow, both built the same day), 2026-11-16 afternoon (third-person works; basket too hard
   to hit, aim line wanted as the flight arc; both done).
