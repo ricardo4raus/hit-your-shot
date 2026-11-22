@@ -37,7 +37,8 @@ export interface PurchaseService {
   readonly isTest: boolean;
 }
 
-export type SfxId = 'shot' | 'hit' | 'rim' | 'floor' | 'buy' | 'roundEnd' | 'newBest' | 'footsteps' | 'error';
+/** Sound effects. 'hit' is the sport's hit sound (the net swish in basketball); 'cheer' is the crowd on a hit streak. */
+export type SfxId = 'shot' | 'hit' | 'rim' | 'floor' | 'buy' | 'roundEnd' | 'newBest' | 'footsteps' | 'error' | 'cheer';
 
 export interface AudioService {
   play(id: SfxId): void;
