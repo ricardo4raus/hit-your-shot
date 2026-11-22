@@ -46,8 +46,8 @@ export function StadiumWorld({ def, cam, width, height }: { def: SportDef; cam: 
       </Rect>
       <Path path={w.roof} color={S.roof} />
       <Path path={w.roofLip} color={S.roofLight} />
-      {w.glows.map((g) => (
-        <SoftSpot key={`g${g.cx}`} spot={g} color={S.lamp} opacity={0.7} core={0.2} />
+      {w.glows.map((g, i) => (
+        <SoftSpot key={`g${i}`} spot={g} color={S.lamp} opacity={0.7} core={0.2} />
       ))}
       <Path path={w.lampBanks} color={S.lamp} />
 

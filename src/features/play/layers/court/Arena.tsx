@@ -68,8 +68,8 @@ export function ArenaWorld({ def, cam, width, height }: { def: SportDef; cam: Ca
         <LinearGradient start={vec(0, w.topY)} end={vec(0, w.farY)} colors={[alpha(A.haze, 0.88), alpha(A.haze, 0.62), alpha(A.haze, 0.42)]} positions={[0, 0.5, 1]} />
       </Rect>
 
-      {w.banners.map((b) => (
-        <Group key={b.color}>
+      {w.banners.map((b, i) => (
+        <Group key={`b${i}`}>
           <Path path={b.body} color={b.color} />
           <Path path={b.shade} color={A.bannerShade} />
           <Path path={b.mark} color={colors.paper} />
@@ -80,8 +80,8 @@ export function ArenaWorld({ def, cam, width, height }: { def: SportDef; cam: Ca
       <Path path={w.beams} color={A.glow}>
         <LinearGradient start={vec(0, w.lamps[0]?.y ?? 0)} end={vec(0, w.farY)} colors={[alpha(A.glow, 0.22), alpha(A.glow, 0.07), alpha(A.glow, 0)]} positions={[0, 0.6, 1]} />
       </Path>
-      {w.lamps.map((l) => (
-        <SoftSpot key={`g${l.x}`} spot={{ cx: l.x, cy: l.y, rx: l.w * 2.6, ry: l.w * 2.0 }} color={A.glow} opacity={0.55} core={0.25} />
+      {w.lamps.map((l, i) => (
+        <SoftSpot key={`g${i}`} spot={{ cx: l.x, cy: l.y, rx: l.w * 2.6, ry: l.w * 2.0 }} color={A.glow} opacity={0.55} core={0.25} />
       ))}
       <Path path={w.lampBodies} color={A.lamp} />
 
@@ -106,8 +106,8 @@ export function ArenaWorld({ def, cam, width, height }: { def: SportDef; cam: Ca
         <LinearGradient start={vec(0, w.farY)} end={vec(0, w.farY + (height - w.farY) * 0.12)} colors={[alpha(A.vignette, 0.45), alpha(A.vignette, 0)]} />
       </Path>
       <SoftSpot spot={w.pool} color={A.shine} opacity={0.4} core={0.35} />
-      {w.glints.map((g) => (
-        <SoftSpot key={`r${g.cx}`} spot={g} color={A.shine} opacity={0.32} core={0.2} />
+      {w.glints.map((g, i) => (
+        <SoftSpot key={`r${i}`} spot={g} color={A.shine} opacity={0.32} core={0.2} />
       ))}
 
       <Vignette width={width} height={height} color={A.vignette} strength={0.55} />
@@ -119,8 +119,8 @@ function BoardsReflection({ boards }: { boards: Boards }) {
   const depth = (boards.bottom - boards.top) * 0.7;
   return (
     <>
-      {boards.mirror.map((p) => (
-        <Path key={`m${p.color}`} path={p.path} color={p.color}>
+      {boards.mirror.map((p, i) => (
+        <Path key={`m${i}`} path={p.path} color={p.color}>
           <LinearGradient start={vec(0, boards.bottom)} end={vec(0, boards.bottom + depth)} colors={[alpha(p.color, 0.3), alpha(p.color, 0)]} />
         </Path>
       ))}

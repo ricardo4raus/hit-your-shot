@@ -16,12 +16,12 @@ export function CrowdView({ crowd, riser, lip }: { crowd: Crowd; riser: string; 
     <>
       <Path path={crowd.risers} color={riser} />
       <Path path={crowd.lips} color={lip} />
-      {crowd.shirts.map((s) => (
-        <Path key={`s${s.color}`} path={s.path} color={s.color} />
+      {crowd.shirts.map((s, i) => (
+        <Path key={`s${i}`} path={s.path} color={s.color} />
       ))}
       <Path path={crowd.hair} color="#2A1E1A" />
-      {crowd.heads.map((h) => (
-        <Path key={`h${h.color}`} path={h.path} color={h.color} />
+      {crowd.heads.map((h, i) => (
+        <Path key={`h${i}`} path={h.path} color={h.color} />
       ))}
     </>
   );
@@ -87,8 +87,8 @@ export function BoardsView({ boards, base, gloss }: { boards: Boards; base: stri
   return (
     <>
       <Path path={boards.base} color={base} />
-      {boards.panels.map((p) => (
-        <Path key={p.color} path={p.path} color={p.color} />
+      {boards.panels.map((p, i) => (
+        <Path key={`p${i}`} path={p.path} color={p.color} />
       ))}
       <Path path={boards.marks} color={alpha(colors.paper, 0.85)} />
       {/* A glossy top half on every panel, as LED boards have. */}
@@ -96,8 +96,8 @@ export function BoardsView({ boards, base, gloss }: { boards: Boards; base: stri
         <LinearGradient start={vec(0, boards.top)} end={vec(0, boards.bottom)} colors={[alpha('#FFFFFF', 0.28), alpha('#FFFFFF', 0.06), alpha('#FFFFFF', 0)]} positions={[0, 0.45, 0.5]} />
       </Path>
       {gloss > 0 &&
-        boards.mirror.map((p) => (
-          <Path key={`m${p.color}`} path={p.path} color={p.color}>
+        boards.mirror.map((p, i) => (
+          <Path key={`m${i}`} path={p.path} color={p.color}>
             <LinearGradient start={vec(0, boards.bottom)} end={vec(0, boards.bottom + mirrorDepth)} colors={[alpha(p.color, gloss), alpha(p.color, 0)]} />
           </Path>
         ))}
