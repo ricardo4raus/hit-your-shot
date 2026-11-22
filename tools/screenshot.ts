@@ -7,6 +7,7 @@
  *     npm run screenshot                      writes screenshots/*.png
  *     npx tsx tools/screenshot.ts --skip-export   reuse the last dist/ export
  *     npx tsx tools/screenshot.ts --chrome "C:/path/to/chrome.exe"
+ *     npx tsx tools/screenshot.ts --dist dist-a --out shots-a --port 8801   parallel runs (one per agent) must not share these
  *
  * Nothing here is part of the app. The export goes to dist/ (ignored), CanvasKit is copied into public/ (ignored).
  */
@@ -16,13 +17,6 @@ import { createServer, type Server } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import puppeteer from 'puppeteer-core';
 
-const root = resolve(__dirname, '..');
-const dist = join(root, 'dist');
-const out = join(root, 'screenshots');
-const PORT = 8799;
-const WIDTH = 375;
-const HEIGHT = 812;
-
 function flag(name: string): boolean {
   return process.argv.includes(`--${name}`);
 }
@@ -31,6 +25,13 @@ function option(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1]! : fallback;
 }
+
+const root = resolve(__dirname, '..');
+const dist = join(root, option('dist', 'dist'));
+const out = join(root, option('out', 'screenshots'));
+const PORT = Number(option('port', '8799'));
+const WIDTH = 375;
+const HEIGHT = 812;
 
 const CHROME_CANDIDATES = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -83,7 +84,7 @@ async function main(): Promise<void> {
   copyFileSync(join(root, 'node_modules/canvaskit-wasm/bin/full/canvaskit.wasm'), join(root, 'public/canvaskit.wasm'));
   if (!flag('skip-export')) {
     console.log('exporting web bundle…');
-    execSync('npx expo export --platform web --output-dir dist', { cwd: root, stdio: 'inherit', env: { ...process.env, CI: '1' } });
+    execSync(`npx expo export --platform web --output-dir ${option('dist', 'dist')}`, { cwd: root, stdio: 'inherit', env: { ...process.env, CI: '1' } });
   }
   mkdirSync(out, { recursive: true });
   const server = serve(dist, PORT);
