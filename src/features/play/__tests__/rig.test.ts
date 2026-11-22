@@ -174,6 +174,15 @@ describe('poseBody', () => {
     }
   });
 
+  it('squashes the torso in the dip and stretches it around the release', () => {
+    const anchors = limbAnchors(1, 'arm');
+    const at = (tau: number) => poseBody({ anchors, timings: timings(1, tau), releaseY: 2.0, time: 0 }).torso;
+    expect(poseBody({ anchors, timings: [null], releaseY: 2.0, time: 0 }).torso).toBeCloseTo(1, 6);
+    expect(at(-0.13)).toBeLessThan(0.97);
+    expect(at(0)).toBeGreaterThan(1.03);
+    expect(at(0.45)).toBeCloseTo(1, 6);
+  });
+
   it('is deterministic', () => {
     const anchors = limbAnchors(5, 'arm');
     const a = poseBody({ anchors, timings: timings(5, 0.1), releaseY: 2.0, time: 2 });
