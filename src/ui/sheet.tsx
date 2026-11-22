@@ -2,13 +2,14 @@
  * Overlays: a bottom sheet and a centered panel, both over an ink scrim at 35% (the one translucent thing the design rules allow).
  * The sheet slides up with ease-out in 280 ms and no bounce (design rules section 9); Reduce Motion keeps the fade and drops the slide.
  * The children mount only while the sheet is open, so heavy content is not computed behind a closed sheet. No library; this is enough.
+ * The sheet is the arena's navy tray (the same surface as the cards panel): a gradient lit from above and a light edge under the ink top.
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { border, colors, motion, radius } from './theme';
+import { border, colors, drop, motion, radius, vgrad } from './theme';
 
 export const SCRIM_OPACITY = 0.35;
 const OUT_MS = 200;
@@ -98,12 +99,14 @@ const styles = StyleSheet.create({
   scrimLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: colors.ink },
   fill: { flex: 1 },
   panel: {
-    backgroundColor: colors.paper,
-    borderTopLeftRadius: radius.card,
-    borderTopRightRadius: radius.card,
+    backgroundColor: colors.panel,
+    backgroundImage: vgrad(colors.panel, colors.panelDeep),
+    borderTopLeftRadius: radius.card + 4,
+    borderTopRightRadius: radius.card + 4,
     borderWidth: border.width,
     borderBottomWidth: 0,
     borderColor: colors.ink,
+    boxShadow: `inset 0px 3px 0px ${colors.panelEdge}, ${drop.panel}`,
   },
   center: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
 });

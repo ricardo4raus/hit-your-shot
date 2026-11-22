@@ -37,7 +37,7 @@ export function createInitialState(balance: Balance, now: number, seed = (now >>
     sports,
     trophies: 0,
     offline: { pendingDouble: 0, lastSeconds: 0 },
-    ads: { roundsSinceX2: 0 },
+    ads: { boostUntil: 0 },
     removeAds: false,
     settings: { sound: true, haptics: true },
     rngState: seed >>> 0,

@@ -2,15 +2,16 @@
  * The shop, as a bottom sheet: balls of the current sport with an "about $X per round" line, the next trainer as a name and a silhouette
  * (the card never says what is different about them; design rules section 8), remove ads and restore purchases. The content mounts only
  * while the sheet is open, and the per-ball estimates are memoized on the sport state, because the estimate runs the real shot resolver.
+ * Styled as the arena's navy tray (ui/sheet.tsx): Lilita headings with an ink outline, rows in inset wells, 3D buttons, prices as the
+ * coin and Nunito digits.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { strings } from '@/content/strings';
 import { characterCost, characterName, formatMoney, incomePerRoundEstimate, type BallDef, type SportId } from '@/engine';
 import { balance, selectSport, selectSportId, useGame } from '@/store/game';
-import { AppText, Money, Pill, Sticker, StickerButton, border, colors, radius, space, sportColors, touch } from '@/ui';
-import { CloseGlyph } from '@/ui/glyphs';
+import { AppText, CloseGlyph, Money, OutlinedText, Pill, RoundButton, Sticker, StickerButton, border, colors, font, radius, shade, space, sportColors, touch, vgrad } from '@/ui';
 import { Sheet } from '@/ui/sheet';
 
 export interface ShopSheetProps {
@@ -89,25 +90,23 @@ function ShopContent({ onClose }: ShopContentProps) {
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        <AppText variant="title">{strings.shop.title}</AppText>
-        <Pill style={styles.moneyPill}>
-          <Money amount={sport.money} size="md" />
-        </Pill>
-        <Pressable
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel={strings.shop.close}
-          hitSlop={space.sm}
-          style={({ pressed }) => [styles.close, pressed && styles.pressed]}
-        >
-          <CloseGlyph size={22} />
-        </Pressable>
+        <OutlinedText size={32} color={colors.paper} stroke={3}>
+          {strings.shop.title}
+        </OutlinedText>
+        <View style={styles.moneyPill}>
+          <Pill color={colors.well}>
+            <Money amount={sport.money} size="md" color={colors.onPanel} />
+          </Pill>
+        </View>
+        <RoundButton accessibilityLabel={strings.shop.close} color={colors.bad} onPress={onClose}>
+          <CloseGlyph size={18} />
+        </RoundButton>
       </View>
 
       <ScrollView style={styles.shrink} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <AppText variant="label" style={styles.section}>
+        <OutlinedText size={20} color={colors.paper} style={styles.section}>
           {strings.shop.balls}
-        </AppText>
+        </OutlinedText>
         {balls.map((ball) => (
           <BallRow
             key={ball.id}
@@ -123,21 +122,23 @@ function ShopContent({ onClose }: ShopContentProps) {
 
         {trainerAvailable ? (
           <>
-            <AppText variant="label" style={styles.section}>
+            <OutlinedText size={20} color={colors.paper} style={styles.section}>
               {strings.shop.characters}
-            </AppText>
+            </OutlinedText>
             <Sticker color={colors.arm} style={styles.trainerCard}>
               <Silhouette />
               <View style={styles.grow}>
-                <AppText variant="caption">{strings.shop.next}</AppText>
-                <AppText variant="title" numberOfLines={1}>
-                  {trainerName}
+                <AppText variant="label" color={colors.paper}>
+                  {strings.shop.next}
                 </AppText>
+                <OutlinedText size={24} color={colors.paper}>
+                  {trainerName}
+                </OutlinedText>
               </View>
               <StickerButton
                 title={strings.shop.buy}
                 money={trainerCost}
-                color={colors.paper}
+                color={colors.good}
                 size="sm"
                 disabled={sport.money < trainerCost}
                 onPress={buyTrainer}
@@ -153,15 +154,15 @@ function ShopContent({ onClose }: ShopContentProps) {
             <StickerButton
               title={strings.shop.removeAds}
               subtitle={formatUsd(balance.shop.removeAdsPriceUsd)}
-              color={colors.paper}
-              size="sm"
+              color={colors.accent}
+              size="md"
               disabled={locked}
               onPress={() => void buyRemoveAds()}
             />
           ) : null}
-          <StickerButton title={strings.shop.restore} color={colors.paper} size="sm" disabled={locked} onPress={() => void restore()} />
+          <StickerButton title={strings.shop.restore} color={colors.blue} size="sm" disabled={locked} onPress={() => void restore()} />
           {restoreNote ? (
-            <AppText variant="caption" center>
+            <AppText variant="body" color={colors.onPanelSoft} center>
               {restoreNote}
             </AppText>
           ) : null}
@@ -192,19 +193,25 @@ function BallRow({ ball, sportId, estimate, money, owned, onFirstLimb, onEveryLi
 
   return (
     <View style={styles.row}>
-      <View style={[styles.ball, { backgroundColor: fill }]} importantForAccessibility="no" accessibilityElementsHidden />
+      <View
+        style={[styles.ball, { backgroundColor: fill, backgroundImage: vgrad(shade(fill, 0.35), fill, shade(fill, -0.15)) }]}
+        importantForAccessibility="no"
+        accessibilityElementsHidden
+      >
+        <View style={styles.ballShine} />
+      </View>
       <View style={styles.grow}>
         <View style={styles.nameRow}>
-          <AppText variant="label" numberOfLines={1}>
+          <AppText variant="label" color={colors.onPanel} numberOfLines={1} style={styles.shrinkText}>
             {ball.name}
           </AppText>
           {onFirstLimb ? (
-            <Pill color={colors.paper2} style={styles.tag}>
-              <AppText variant="caption">{strings.shop.inUse}</AppText>
-            </Pill>
+            <View style={styles.tag}>
+              <AppText style={styles.tagText}>{strings.shop.inUse}</AppText>
+            </View>
           ) : null}
         </View>
-        <AppText variant="caption" tabular>
+        <AppText variant="body" color={colors.onPanelSoft} tabular>
           {strings.shop.perRound(formatMoney(estimate))}
         </AppText>
       </View>
@@ -212,7 +219,7 @@ function BallRow({ ball, sportId, estimate, money, owned, onFirstLimb, onEveryLi
         <StickerButton
           title={strings.shop.buy}
           money={ball.cost}
-          color={colors.paper}
+          color={colors.good}
           size="sm"
           disabled={money < ball.cost}
           onPress={buy}
@@ -222,7 +229,7 @@ function BallRow({ ball, sportId, estimate, money, owned, onFirstLimb, onEveryLi
       ) : !onEveryLimb ? (
         <StickerButton
           title={strings.shop.useOnAll}
-          color={colors.paper}
+          color={colors.blue}
           size="sm"
           onPress={useOnAll}
           accessibilityLabel={`${strings.shop.useOnAll}, ${ball.name}`}
@@ -230,7 +237,7 @@ function BallRow({ ball, sportId, estimate, money, owned, onFirstLimb, onEveryLi
         />
       ) : (
         <View style={[styles.action, styles.ownedBox]}>
-          <AppText variant="caption" center>
+          <AppText variant="label" color={colors.onPanelSoft} center>
             {strings.shop.owned}
           </AppText>
         </View>
@@ -252,28 +259,33 @@ function Silhouette() {
 const styles = StyleSheet.create({
   root: { paddingHorizontal: space.lg, paddingTop: space.md, flexShrink: 1 },
   shrink: { flexShrink: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: touch.min },
-  moneyPill: { marginLeft: 'auto', paddingVertical: 4 },
-  close: { width: touch.min, height: touch.min, alignItems: 'center', justifyContent: 'center', marginRight: -space.md },
-  pressed: { opacity: 0.6 },
-  scroll: { paddingBottom: space.xl },
-  section: { marginTop: space.md, marginBottom: space.xs },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: touch.min + 8 },
+  moneyPill: { marginLeft: 'auto' },
+  scroll: { paddingBottom: space.xl, gap: space.sm },
+  section: { alignSelf: 'flex-start', marginTop: space.md },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
-    paddingVertical: space.sm,
-    borderBottomWidth: border.thin,
-    borderBottomColor: colors.paper2,
+    padding: space.sm,
+    paddingLeft: space.md,
+    borderRadius: radius.well + 4,
+    borderWidth: border.thin,
+    borderColor: colors.ink,
+    backgroundColor: colors.well,
+    boxShadow: 'inset 0px 3px 0px rgba(10, 16, 30, 0.35)',
   },
-  ball: { width: 36, height: 36, borderRadius: 18, borderWidth: border.width, borderColor: colors.ink },
+  ball: { width: 40, height: 40, borderRadius: 20, borderWidth: border.width, borderColor: colors.ink, overflow: 'hidden' },
+  ballShine: { position: 'absolute', left: 6, top: 5, width: 11, height: 7, borderRadius: 4, backgroundColor: 'rgba(255, 255, 255, 0.7)', transform: [{ rotate: '-30deg' }] },
   grow: { flex: 1, gap: 2 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  tag: { paddingVertical: 1, paddingHorizontal: 8 },
-  action: { width: 108 },
-  ownedBox: { minHeight: touch.min, justifyContent: 'center', borderRadius: radius.button, backgroundColor: colors.paper2 },
+  shrinkText: { flexShrink: 1 },
+  tag: { paddingHorizontal: 7, height: 20, borderRadius: 7, backgroundColor: colors.good, borderWidth: border.thin, borderColor: colors.ink, justifyContent: 'center' },
+  tagText: { fontFamily: font.family.display, fontSize: font.size.caption + 1, lineHeight: 16, color: colors.ink },
+  action: { width: 112 },
+  ownedBox: { minHeight: touch.min, justifyContent: 'center' },
   trainerCard: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md },
-  purchases: { marginTop: space.xl, gap: space.sm },
+  purchases: { marginTop: space.lg, gap: space.md },
   silhouette: { width: 44, height: 56, alignItems: 'center', justifyContent: 'flex-end' },
   silhouetteHead: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.ink, marginBottom: -4, zIndex: 1 },
   silhouetteBody: { width: 40, height: 34, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, backgroundColor: colors.ink },

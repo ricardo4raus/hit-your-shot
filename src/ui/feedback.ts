@@ -1,6 +1,6 @@
 /**
- * Haptics behind the player's setting, and the money pill's pop. Never throws. The setting is read through a getter so this file does
- * not import the store.
+ * Haptics behind the player's setting, and the money pill's pop (now or at a future hit's time). Never throws. The setting is read
+ * through a getter so this file does not import the store.
  */
 import * as Haptics from 'expo-haptics';
 import { makeMutable, withSequence, withTiming } from 'react-native-reanimated';
@@ -15,6 +15,20 @@ export function pulseMoney(now: number): void {
   if (now - lastPulseAt < PULSE_MIN_GAP_MS) return;
   lastPulseAt = now;
   moneyPulse.value = withSequence(withTiming(1.12, { duration: 70 }), withTiming(1, { duration: 160 }));
+}
+
+let lastScheduledAt = 0;
+
+/**
+ * A hit will happen at wall time `atMs` (shots are resolved when fired, the ball lands later): the pill pops then. Throttled like
+ * pulseMoney, on the hit times, so a flood of future hits schedules one timer per gap, not one per hit.
+ */
+export function pulseMoneyAt(atMs: number): void {
+  if (Math.abs(atMs - lastScheduledAt) < PULSE_MIN_GAP_MS) return;
+  lastScheduledAt = atMs;
+  const delay = atMs - Date.now();
+  if (delay <= 0) pulseMoney(Date.now());
+  else setTimeout(() => pulseMoney(Date.now()), delay);
 }
 
 let enabled = (): boolean => true;

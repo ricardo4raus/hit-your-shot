@@ -122,7 +122,7 @@ A mobile sports shooter with idle/upgrade progression. A character shoots balls 
 | The 3 upgrades with pips and a spread cone | hard mode, obstacles, combos, prestige |
 | Round result over the play button, with commentator line | leaderboards, accounts |
 | Small offline earnings | daily rewards, notifications |
-| One rewarded "×2 this round" placement (available every third round at most), one rewarded "double" on the offline screen, one remove-ads purchase (around $2.99, also makes ×2 free and always available) | interstitials, other purchases |
+| Rewarded offers on the left (owner, 2026-11-22): an income boost (each ad adds 10 minutes of ×2 income, stacking up to 2 hours) and the "double" of the offline money; one remove-ads purchase (around $2.99, makes the offers free) | interstitials, other purchases |
 | Settings: sound, haptics, restore purchases, privacy | everything else |
 
 ---

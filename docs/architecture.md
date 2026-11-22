@@ -71,7 +71,7 @@ Each module is one file plus its tests in `src/engine/__tests__/<module>.test.ts
 | trophies | `trophies.ts` | agent "economy" | contracts | milestone ids, `trophyMilestones`, `unlockSport`, `masteryBonus` |
 | offline | `offline.ts` | agent "meta" | contracts | `offlineSeconds`, `computeOfflineEarnings`, `applyOfflineEarnings`, `claimOfflineDouble` |
 | save | `save.ts` | agent "meta" | contracts | `serialize`, `deserialize`, migrations, Zod schema of `GameState` |
-| ads | `ads.ts` | agent "meta" | contracts | `canWatchX2`, `applyX2`, `buyRemoveAds` |
+| ads | `ads.ts` | agent "meta" | contracts | `boostLeftMs`, `canAddBoost`, `addBoost`, `buyRemoveAds` |
 
 ## Coordinates and units
 
@@ -114,7 +114,7 @@ Fire rates can be extreme (hundreds of shots per second with many limbs and a li
 
 - Money, upgrades, balls, limb assignment, character, best round, stats: **per sport** (`SportState`).
 - Trophies, remove-ads, settings, offline, clock: **global**.
-- Income per hit = ball value × `incomeMult(level)` × `masteryBonus(state)` × round boost (×2 ad).
+- Income per hit = ball value × `incomeMult(level)` × `masteryBonus(state)` × round boost (×2 while the ad boost runs at round start).
 - Costs: `base × growth^level`. Every base and growth is in `balance.json`.
 
 ## Save and time

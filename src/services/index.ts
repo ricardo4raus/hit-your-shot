@@ -2,6 +2,7 @@
  * CONTRACT FILE. Owned by the lead.
  * Service registry. Phase 1 (Expo Go) implementations. Replace entries here in phase 2.
  */
+import { expoAudio } from './audio';
 import type { AdsService, AudioService, PurchaseService, SaveService, Services, SfxId } from './types';
 import { store } from './stringStore';
 
@@ -65,7 +66,7 @@ export const fakePurchases: PurchaseService = {
   },
 };
 
-/** Phase 1: silent. The audio module arrives with the asset pack. */
+/** Silent audio, for tests and as a fallback. The game uses expoAudio (services/audio.ts). */
 export const silentAudio: AudioService = {
   play(_id: SfxId) {},
   setEnabled(_on: boolean) {},
@@ -75,5 +76,5 @@ export const services: Services = {
   save: kvSave,
   ads: fakeAds,
   purchases: fakePurchases,
-  audio: silentAudio,
+  audio: expoAudio,
 };

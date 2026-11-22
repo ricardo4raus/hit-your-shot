@@ -19,6 +19,8 @@
  *    0.30 …  0.55  return to the hold
  * At fire rates where a period is shorter than the cycle, the cycle is squeezed into the period, so a fast arm pumps instead of freezing.
  * The knees follow the deepest dip of any arm; the torso leans a little into it. Idle: the hold pose with a slow breath.
+ * Squash and stretch (2026-11-22, polished arcade look): the torso gets a little shorter in the dip and a little longer from the rise
+ * through the flick, so the body loads and springs; BodyPose.torso carries the factor so the drawing can widen or narrow to match.
  */
 import type { LimbAnchor } from '@/engine';
 
@@ -42,6 +44,9 @@ const DIP_LEAN = 0.05;
 /** Breath: shoulder rise, body units, and its period in seconds. */
 const BREATH = 0.006;
 const BREATH_PERIOD = 2.4;
+/** Torso length change at a full dip (shorter) and at the peak of the stretch (longer), as fractions. */
+const SQUASH = 0.06;
+const STRETCH = 0.05;
 
 /** Full cycle length in seconds; shorter periods squeeze it. */
 export const CYCLE_SEC = 0.95;
@@ -83,6 +88,8 @@ export interface BodyPose {
   head: Vec;
   /** 0 standing, 1 full knee bend. */
   dip: number;
+  /** Torso length factor from squash and stretch: below 1 in the dip, above 1 around the release. */
+  torso: number;
   arms: ArmPose[];
   legs: [LegPose, LegPose];
 }
@@ -219,6 +226,8 @@ export interface CyclePhase {
   flick: number;
   /** 1 while the ball is in the hand. */
   holding: number;
+  /** 0..1: how far the body springs up, peaking at the release and fading through the follow-through. */
+  stretch: number;
 }
 
 /** Where an arm is in its cycle for a time `tau` (seconds around its fire time) and a shot period. */
@@ -227,22 +236,22 @@ export function cyclePhase(tau: number, period: number): CyclePhase {
   // A period shorter than the cycle squeezes the whole cycle into it; the release stays at tau = 0.
   const squeeze = period > 0 && period < CYCLE_SEC ? period / CYCLE_SEC : 1;
   const t = tau / squeeze;
-  if (t < DIP_START || t >= RETURN_END) return { dip: 0, reach: 0, flick: -0.3, holding: 1 };
+  if (t < DIP_START || t >= RETURN_END) return { dip: 0, reach: 0, flick: -0.3, holding: 1, stretch: 0 };
   if (t < RISE_START) {
     const u = smooth((t - DIP_START) / (RISE_START - DIP_START));
-    return { dip: u, reach: 0, flick: -0.3 - 0.7 * u, holding: 1 };
+    return { dip: u, reach: 0, flick: -0.3 - 0.7 * u, holding: 1, stretch: 0 };
   }
   if (t < 0) {
     const u = easeOut((t - RISE_START) / (0 - RISE_START));
-    return { dip: 1 - u, reach: u, flick: -1, holding: 1 };
+    return { dip: 1 - u, reach: u, flick: -1, holding: 1, stretch: u };
   }
   if (t < FLICK_END) {
     const u = easeOut(t / FLICK_END);
-    return { dip: 0, reach: 1, flick: -1 + 2 * u, holding: 0 };
+    return { dip: 0, reach: 1, flick: -1 + 2 * u, holding: 0, stretch: 1 - 0.3 * u };
   }
-  if (t < FOLLOW_END) return { dip: 0, reach: 1, flick: 1, holding: 0 };
+  if (t < FOLLOW_END) return { dip: 0, reach: 1, flick: 1, holding: 0, stretch: 0.7 * (1 - smooth((t - FLICK_END) / (FOLLOW_END - FLICK_END))) };
   const u = smooth((t - FOLLOW_END) / (RETURN_END - FOLLOW_END));
-  return { dip: 0, reach: 1 - u, flick: 1 - 1.3 * u, holding: u > 0.6 ? 1 : 0 };
+  return { dip: 0, reach: 1 - u, flick: 1 - 1.3 * u, holding: u > 0.6 ? 1 : 0, stretch: 0 };
 }
 
 // ---------- Posing ----------
@@ -263,18 +272,22 @@ export function poseBody(input: PoseInput): BodyPose {
   const n = input.anchors.length;
   // Knees follow the deepest dip of any arm; the breath lifts the shoulders a hair.
   let dip = 0;
+  let stretch = 0;
   const phases: CyclePhase[] = new Array(n);
   for (let i = 0; i < n; i++) {
     const timing = input.timings[i] ?? null;
-    const phase = timing ? cyclePhase(timing.tau, timing.period) : { dip: 0, reach: 0, flick: -0.3, holding: 1 };
+    const phase = timing ? cyclePhase(timing.tau, timing.period) : { dip: 0, reach: 0, flick: -0.3, holding: 1, stretch: 0 };
     phases[i] = phase;
     if (phase.dip > dip) dip = phase.dip;
+    if (phase.stretch > stretch) stretch = phase.stretch;
   }
   const breath = BREATH * Math.sin((2 * Math.PI * input.time) / BREATH_PERIOD);
+  // Squash in the dip, stretch around the release; the breath rides on top. Anchors on the torso scale with it.
+  const torso = 1 - SQUASH * dip + STRETCH * stretch + breath / (SHOULDER_Y - HIP_Y);
   const hipY = (HIP_Y - DIP_DROP * dip) * BODY_H;
   const lean = DIP_LEAN * dip * BODY_H;
   const hips = vec(0, hipY, 0);
-  const shoulders = vec(lean, hipY + (SHOULDER_Y - HIP_Y + breath) * BODY_H, 0);
+  const shoulders = vec(lean, hipY + (SHOULDER_Y - HIP_Y) * torso * BODY_H, 0);
   const head = vec(lean * 1.2, shoulders.y + (HEAD_Y - SHOULDER_Y) * BODY_H, 0);
 
   // Legs: feet planted, knees bend forward as the hips drop.
@@ -296,7 +309,7 @@ export function poseBody(input: PoseInput): BodyPose {
     const yaw = timing ? timing.yaw : 0;
     const offset = timing ? timing.offset : 0;
     // The anchor rides on the torso: its height follows the hips and the lean, back anchors sit a little behind.
-    const shoulder = vec((an.behind ? -0.06 : 0.02) * BODY_H + lean * (an.y - HIP_Y) / (SHOULDER_Y - HIP_Y), hipY + (an.y - HIP_Y) * BODY_H, an.x * BODY_H);
+    const shoulder = vec((an.behind ? -0.06 : 0.02) * BODY_H + lean * (an.y - HIP_Y) / (SHOULDER_Y - HIP_Y), hipY + (an.y - HIP_Y) * torso * BODY_H, an.x * BODY_H);
     // Hold: the ball at the chin with the elbows out, so the forearms show beside the torso from behind; the dip lowers it to the
     // chest. Release: up at the release height, a hand's reach forward along this arm's aim, over its lateral offset.
     const side = an.side;
@@ -321,7 +334,7 @@ export function poseBody(input: PoseInput): BodyPose {
     arms[i] = { shoulder, elbow, wrist, tip, holding: phase.holding, behind: an.behind };
   }
 
-  return { hips, shoulders, head, dip, arms, legs: [legs[0]!, legs[1]!] };
+  return { hips, shoulders, head, dip, torso, arms, legs: [legs[0]!, legs[1]!] };
 }
 
 /** Seconds around the nearest fire time for a periodic schedule: negative before it, positive after. */

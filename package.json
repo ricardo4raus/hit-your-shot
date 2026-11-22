@@ -11,7 +11,8 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "simulate": "tsx tools/simulate.ts",
-    "screenshot": "tsx tools/screenshot.ts"
+    "screenshot": "tsx tools/screenshot.ts",
+    "sfx": "tsx tools/make-sfx.ts"
   },
   "jest": {
     "preset": "jest-expo",

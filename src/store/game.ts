@@ -10,6 +10,9 @@
  * - Call actions through `useGame.getState().actions.xxx(...)`. Every action returns `{ ok }` or `{ ok: false, error }`.
  * - Nothing can be bought while a round plays (`between_rounds_only`); the UI disables the buttons and the store refuses anyway.
  * - Animations and toasts react to events: `useGameEvent` from store/events.ts.
+ * - Offers (owner 2026-11-22): rewarded-ad cards that pop in on the left between rounds and stack from the top (`offers`, oldest first).
+ *   A "boost" offer adds balance.ads.boostMinutes of ×boostMult income per ad, stacking to the cap; an "offlineDouble" offer doubles the
+ *   money from while the app was closed. Each offer goes away after balance.ads.offerSeconds (`until`); the UI calls `dropOffer` then.
  */
 import { AppState, type AppStateStatus } from 'react-native';
 import { create } from 'zustand';
@@ -44,6 +47,15 @@ export interface OfflineView {
   canDouble: boolean;
 }
 
+export type OfferKind = 'boost' | 'offlineDouble';
+
+/** A rewarded-ad offer card. `until` is the wall time (ms) it goes away. */
+export interface Offer {
+  id: number;
+  kind: OfferKind;
+  until: number;
+}
+
 const TICK_MS = 1000 / 30;
 const SAVE_EVERY_MS = 5000;
 const HIT_HAPTIC_MIN_GAP_MS = 120;
@@ -66,8 +78,10 @@ export interface GameActions {
   buyCharacter(): ActionStatus;
   unlockSport(id: SportId): ActionStatus;
   selectSport(id: SportId): ActionStatus;
-  /** Shows the ad (free with removeAds) and doubles the next round. */
-  watchX2(): Promise<ActionStatus>;
+  /** Shows the ad for an offer (free with removeAds) and pays it: more boost time, or the offline double. */
+  takeOffer(id: number): Promise<ActionStatus>;
+  /** An offer ran out or was waved away. An offline double that goes away is gone for good. */
+  dropOffer(id: number): void;
   /** Shows the ad and doubles the pending offline payout. */
   watchOfflineDouble(): Promise<ActionStatus>;
   dismissOffline(): void;
@@ -88,7 +102,9 @@ export interface GameStore {
   roundMoney: number;
   result: RoundResultView | null;
   offline: OfflineView | null;
-  /** The ×2 ad is being shown. */
+  /** Rewarded-ad offers on the left, oldest (top) first. */
+  offers: Offer[];
+  /** An ad is being shown. */
   busy: boolean;
   actions: GameActions;
 }
@@ -101,8 +117,8 @@ let aim = 0;
 let roundRng: Rng = E.createRng(1);
 let lastSaveAt = 0;
 let lastHitHapticAt = 0;
-let pendingDouble = false;
 let limbsAtLastRound = 0;
+let nextOfferId = 1;
 const usedLines = new Set<string>();
 let lastLine: string | null = null;
 
@@ -129,6 +145,37 @@ export const useGame = create<GameStore>((set, get) => {
     set({ state: result.state });
     emitGameEvents(result.events);
     return { ok: true };
+  }
+
+  /** Adds an offer at the bottom of the stack, unless one of that kind is already showing (then its time starts again). */
+  function popOffer(kind: OfferKind, now: number): void {
+    const until = now + balance.ads.offerSeconds * 1000;
+    const offers = get().offers;
+    if (offers.some((o) => o.kind === kind)) {
+      set({ offers: offers.map((o) => (o.kind === kind ? { ...o, until } : o)) });
+      return;
+    }
+    set({ offers: [...offers, { id: nextOfferId++, kind, until }] });
+  }
+
+  function removeOffers(kind: OfferKind): void {
+    set({ offers: get().offers.filter((o) => o.kind !== kind) });
+  }
+
+  /** Between rounds, once nothing covers the screen: the boost offer while one more step fits, the offline double while it is pending. */
+  function popIdleOffers(now: number): void {
+    if (get().offline) return;
+    const state = get().state;
+    if (state.offline.pendingDouble > 0) popOffer('offlineDouble', now);
+    // A new player sees "DRAG TO AIM" first; the boost offer waits for the first finished round.
+    if (state.sports[state.currentSport].roundsPlayed > 0 && E.canAddBoost(state, balance, now)) popOffer('boost', now);
+  }
+
+  /** The offline payout. A short absence pays nothing and keeps the double that is still waiting as an offer. */
+  function payOffline(state: GameState, now: number): E.ActionResult {
+    const res = E.applyOfflineEarnings(state, balance, now);
+    if (!res.ok || res.events.some((e) => e.type === 'offlineEarned')) return res;
+    return { ...res, state: { ...res.state, offline: state.offline } };
   }
 
   function saveNow(now: number): void {
@@ -186,7 +233,9 @@ export const useGame = create<GameStore>((set, get) => {
     });
     emitGameEvents(res.events);
     services.audio.play(newBest ? 'newBest' : 'roundEnd');
-    saveNow(Date.now());
+    const now = Date.now();
+    if (E.canAddBoost(get().state, balance, now)) popOffer('boost', now);
+    saveNow(now);
   }
 
   function stopFastLoop(): void {
@@ -258,12 +307,14 @@ export const useGame = create<GameStore>((set, get) => {
       return;
     }
     if (next === 'active') {
-      const res = E.applyOfflineEarnings(get().state, balance, now);
+      const res = payOffline(get().state, now);
       if (res.ok) {
         set({ state: res.state });
         emitGameEvents(res.events);
         const earned = res.events.find((e) => e.type === 'offlineEarned');
         if (earned && earned.type === 'offlineEarned') {
+          // A new payout replaces the one an old offer would have doubled.
+          removeOffers('offlineDouble');
           set({ offline: { money: earned.money, seconds: earned.seconds, canDouble: true } });
         }
       }
@@ -283,13 +334,14 @@ export const useGame = create<GameStore>((set, get) => {
     roundMoney: 0,
     result: null,
     offline: null,
+    offers: [],
     busy: false,
     actions: {
       init() {
         if (get().ready) return;
         const now = Date.now();
         let state = loadState(now);
-        const res = E.applyOfflineEarnings(state, balance, now);
+        const res = payOffline(state, now);
         let offline: OfflineView | null = null;
         if (res.ok) {
           state = res.state;
@@ -300,6 +352,7 @@ export const useGame = create<GameStore>((set, get) => {
         setHapticsGetter(() => get().state.settings.haptics);
         services.audio.setEnabled(state.settings.sound);
         set({ state, ready: true, offline });
+        popIdleOffers(now);
         if (!slowLoop) slowLoop = setInterval(onSlowTick, SAVE_EVERY_MS);
         if (!appStateSub) appStateSub = AppState.addEventListener('change', onAppState);
         saveNow(now);
@@ -317,11 +370,9 @@ export const useGame = create<GameStore>((set, get) => {
         // the idle motion is sin(2π · wallSeconds / period), so the round's phase is that same angle at startedAt.
         const motion = balance.sports[round.sport].target.motion;
         if (motion.periodSec > 0) round = { ...round, targetPhase: ((TWO_PI * (now / 1000)) / motion.periodSec) % TWO_PI };
-        // The ×2 ad counts as used only now, when the round it pays for actually starts.
-        const doubled = pendingDouble;
-        pendingDouble = false;
-        const next = doubled ? E.markX2Used(seeded) : seeded;
-        set({ state: next, phase: 'playing', round: { ...round, doubled }, secondsLeft: round.seconds, roundMoney: 0, result: null });
+        // The boost pays the whole round when it runs at the start, even if it runs out during the round.
+        const doubled = E.boostActive(seeded, balance, now);
+        set({ state: seeded, phase: 'playing', round: { ...round, doubled }, secondsLeft: round.seconds, roundMoney: 0, result: null });
         startFastLoop();
         return { ok: true };
       },
@@ -383,30 +434,56 @@ export const useGame = create<GameStore>((set, get) => {
         const status = apply(E.selectSport(get().state, balance, id));
         if (status.ok) {
           limbsAtLastRound = get().state.sports[id].limbs;
-          pendingDouble = false;
-          set({ phase: 'idle', result: null, round: null });
+          // The offline double pays the sport it was earned in; switching drops it.
+          removeOffers('offlineDouble');
+          const s = get().state;
+          set({ phase: 'idle', result: null, round: null, state: { ...s, offline: { ...s.offline, pendingDouble: 0 } } });
           saveNow(Date.now());
         }
         return status;
       },
 
-      async watchX2() {
-        const { state, busy, phase } = get();
-        if (busy || phase === 'playing') return { ok: false, error: 'invalid' };
-        if (!E.canWatchX2(state, balance)) return { ok: false, error: 'not_available' };
-        if (pendingDouble) return { ok: false, error: 'already_owned' };
+      async takeOffer(id) {
+        const { busy, phase, offers } = get();
+        const offer = offers.find((o) => o.id === id);
+        if (!offer || busy || phase === 'playing') return { ok: false, error: 'invalid' };
+        if (offer.kind === 'offlineDouble') {
+          const status = await get().actions.watchOfflineDouble();
+          if (status.ok) removeOffers('offlineDouble');
+          return status;
+        }
+        if (!E.canAddBoost(get().state, balance, Date.now())) {
+          removeOffers('boost');
+          return { ok: false, error: 'not_available' };
+        }
         set({ busy: true });
         try {
-          if (!state.removeAds) {
-            const result = await services.ads.showRewarded('x2_round');
+          if (!get().state.removeAds) {
+            const result = await services.ads.showRewarded('boost');
             if (!result.rewarded) return { ok: false, error: 'not_available' };
           }
-          // Marked as used when the doubled round starts (startRound), so a kill before that does not burn the cooldown.
-          pendingDouble = true;
-          emitGameEvents([{ type: 'x2Applied', sport: state.currentSport }]);
-          return { ok: true };
+          const now = Date.now();
+          const status = apply(E.addBoost(get().state, balance, now));
+          if (status.ok) {
+            services.audio.play('buy');
+            // The offer stays while one more step fits, with its time started again, so ads can be stacked one after another.
+            if (E.canAddBoost(get().state, balance, now)) popOffer('boost', now);
+            else removeOffers('boost');
+            saveNow(now);
+          }
+          return status;
         } finally {
           set({ busy: false });
+        }
+      },
+
+      dropOffer(id) {
+        const offer = get().offers.find((o) => o.id === id);
+        if (!offer) return;
+        set({ offers: get().offers.filter((o) => o.id !== id) });
+        if (offer.kind === 'offlineDouble') {
+          const s = get().state;
+          set({ state: { ...s, offline: { ...s.offline, pendingDouble: 0 } } });
         }
       },
 
@@ -421,7 +498,12 @@ export const useGame = create<GameStore>((set, get) => {
             if (!result.rewarded) return { ok: false, error: 'not_available' };
           }
           const status = apply(E.claimOfflineDouble(get().state, balance));
-          if (status.ok) set({ offline: null });
+          if (status.ok) {
+            set({ offline: null });
+            removeOffers('offlineDouble');
+            popIdleOffers(Date.now());
+            saveNow(Date.now());
+          }
           return status;
         } finally {
           set({ busy: false });
@@ -429,7 +511,9 @@ export const useGame = create<GameStore>((set, get) => {
       },
 
       dismissOffline() {
-        set({ offline: null, state: { ...get().state, offline: { ...get().state.offline, pendingDouble: 0 } } });
+        // "Keep" closes the panel; the double waits as an offer on the left until it runs out.
+        set({ offline: null });
+        popIdleOffers(Date.now());
       },
 
       async buyRemoveAds() {
@@ -471,9 +555,8 @@ export const useGame = create<GameStore>((set, get) => {
         const state = E.createInitialState(balance, now);
         usedLines.clear();
         lastLine = null;
-        pendingDouble = false;
         limbsAtLastRound = 1;
-        set({ state, phase: 'idle', round: null, result: null, offline: null, secondsLeft: 0, roundMoney: 0 });
+        set({ state, phase: 'idle', round: null, result: null, offline: null, offers: [], secondsLeft: 0, roundMoney: 0 });
         services.save.save(E.serialize(state, now));
       },
     },

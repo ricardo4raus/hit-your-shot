@@ -1,32 +1,57 @@
-import { buyRemoveAds, canWatchX2, markX2Used } from '../ads';
-import { balance, makeState } from '../testing';
+import { addBoost, boostActive, boostLeftMs, buyRemoveAds, canAddBoost } from '../ads';
+import { balance, makeState, T0 } from '../testing';
 
-describe('canWatchX2', () => {
-  it('is on cooldown right after a ×2 and opens after x2EveryRounds rounds', () => {
-    expect(canWatchX2(makeState({ ads: { roundsSinceX2: 0 } }), balance)).toBe(false);
-    expect(canWatchX2(makeState({ ads: { roundsSinceX2: balance.ads.x2EveryRounds - 1 } }), balance)).toBe(false);
-    expect(canWatchX2(makeState({ ads: { roundsSinceX2: balance.ads.x2EveryRounds } }), balance)).toBe(true);
-    expect(canWatchX2(makeState({ ads: { roundsSinceX2: balance.ads.x2EveryRounds + 5 } }), balance)).toBe(true);
+const MIN = 60_000;
+const STEP = balance.ads.boostMinutes * MIN;
+const CAP = balance.ads.boostCapMinutes * MIN;
+
+describe('the income boost', () => {
+  it('starts off', () => {
+    const state = makeState();
+    expect(boostLeftMs(state, balance, T0)).toBe(0);
+    expect(boostActive(state, balance, T0)).toBe(false);
+    expect(canAddBoost(state, balance, T0)).toBe(true);
   });
 
-  it('is always available with remove-ads', () => {
-    expect(canWatchX2(makeState({ removeAds: true, ads: { roundsSinceX2: 0 } }), balance)).toBe(true);
-  });
-});
-
-describe('markX2Used', () => {
-  it('restarts the cooldown without touching the input', () => {
-    const before = makeState({ ads: { roundsSinceX2: 7 } });
+  it('adds one step per ad and stacks on what is left, without touching the input', () => {
+    const before = makeState();
     const snapshot = JSON.stringify(before);
-    const after = markX2Used(before);
-    expect(after.ads.roundsSinceX2).toBe(0);
-    expect(canWatchX2(after, balance)).toBe(false);
+    const once = addBoost(before, balance, T0);
+    expect(once.ok).toBe(true);
+    expect(once.state.ads.boostUntil).toBe(T0 + STEP);
+    expect(once.events).toEqual([{ type: 'boostAdded', until: T0 + STEP }]);
+    // Half a step later another ad adds a full step on top of the half that is left.
+    const later = T0 + STEP / 2;
+    const twice = addBoost(once.state, balance, later);
+    expect(boostLeftMs(twice.state, balance, later)).toBe(STEP * 1.5);
     expect(JSON.stringify(before)).toBe(snapshot);
-    expect(after).not.toBe(before);
   });
 
-  it('keeps ×2 available with remove-ads even right after use', () => {
-    expect(canWatchX2(markX2Used(makeState({ removeAds: true })), balance)).toBe(true);
+  it('runs out', () => {
+    const state = addBoost(makeState(), balance, T0).state;
+    expect(boostActive(state, balance, T0 + STEP - 1)).toBe(true);
+    expect(boostActive(state, balance, T0 + STEP)).toBe(false);
+    expect(boostLeftMs(state, balance, T0 + STEP * 3)).toBe(0);
+  });
+
+  it('stops at the cap', () => {
+    let state = makeState();
+    const steps = Math.floor(CAP / STEP);
+    for (let i = 0; i < steps; i++) state = addBoost(state, balance, T0).state;
+    expect(boostLeftMs(state, balance, T0)).toBe(steps * STEP);
+    expect(canAddBoost(state, balance, T0)).toBe(false);
+    const refused = addBoost(state, balance, T0);
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error).toBe('not_available');
+    expect(refused.state).toBe(state);
+    // Once a full step has run down, one more fits.
+    expect(canAddBoost(state, balance, T0 + STEP)).toBe(true);
+  });
+
+  it('never reports more than the cap when the clock moves back', () => {
+    const state = makeState({ ads: { boostUntil: T0 + CAP } });
+    expect(boostLeftMs(state, balance, T0 - 24 * 60 * MIN)).toBe(CAP);
+    expect(canAddBoost(state, balance, T0 - 24 * 60 * MIN)).toBe(false);
   });
 });
 

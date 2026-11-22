@@ -172,15 +172,14 @@ describe('selectSport', () => {
     expect(result.state.currentSport).toBe('basketball');
   });
 
-  it('switches to an unlocked sport and makes the x2 ad available', () => {
-    const state = makeStateWith('basketball', {}, { ads: { roundsSinceX2: 0 } });
+  it('switches to an unlocked sport and keeps the income boost running', () => {
+    const state = makeStateWith('basketball', {}, { ads: { boostUntil: 5000 } });
     const unlocked = { ...state, sports: { ...state.sports, football: { ...state.sports.football, unlocked: true } } };
     const result = selectSport(unlocked, balance, 'football');
     expect(result.ok).toBe(true);
     expect(result.state.currentSport).toBe('football');
-    expect(result.state.ads.roundsSinceX2).toBe(balance.ads.x2EveryRounds);
+    expect(result.state.ads.boostUntil).toBe(5000);
     expect(result.events).toEqual([]);
     expect(unlocked.currentSport).toBe('basketball');
-    expect(unlocked.ads.roundsSinceX2).toBe(0);
   });
 });

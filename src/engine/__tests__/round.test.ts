@@ -242,9 +242,9 @@ describe('hitValue', () => {
     expect(hitValue(state, balance, 'basketball', foam, false)).toBe(foam.value * incomeMult(balance, 3) * masteryBonus(state, balance));
   });
 
-  it('multiplies by the ×2 round multiplier when doubled', () => {
+  it('multiplies by the boost multiplier when doubled', () => {
     const state = makeState();
-    expect(hitValue(state, balance, 'basketball', medicine, true)).toBeCloseTo(medicine.value * balance.ads.x2RoundMult, 12);
+    expect(hitValue(state, balance, 'basketball', medicine, true)).toBeCloseTo(medicine.value * balance.ads.boostMult, 12);
   });
 
   it('counts mastered sports everywhere', () => {
@@ -286,7 +286,7 @@ describe('shotInputFor', () => {
     const state = makeState();
     const plain = shotInputFor(state, balance, roundFor(state), 0, 1, 0).valueIfHit;
     const doubled = shotInputFor(state, balance, roundFor(state, { doubled: true }), 0, 1, 0).valueIfHit;
-    expect(doubled).toBeCloseTo(plain * balance.ads.x2RoundMult, 12);
+    expect(doubled).toBeCloseTo(plain * balance.ads.boostMult, 12);
   });
 
   it('follows the round\'s sport, not the state\'s current sport', () => {
@@ -345,14 +345,13 @@ describe('settleRound', () => {
     expect(sport.roundsPlayed).toBe(8);
     expect(sport.bestRound).toBe(33.5);
     expect(sport.lastRoundMoney).toBe(33.5);
-    expect(res.state.ads.roundsSinceX2).toBe(1);
+    expect(res.state.ads).toEqual(state.ads);
     expect(res.events).toEqual([
       { type: 'roundEnded', sport: 'basketball', money: 33.5, shots: 9, hits: 4, newBest: true },
       { type: 'newBest', sport: 'basketball', money: 33.5 },
     ]);
     // The input state is untouched.
     expect(state.sports.basketball.money).toBe(10);
-    expect(state.ads.roundsSinceX2).toBe(0);
   });
 
   it('a round that only equals the best is not a new best', () => {
@@ -372,12 +371,10 @@ describe('settleRound', () => {
     expect(res.state.currentSport).toBe('golf');
   });
 
-  it('counts rounds since the last ×2 ad, and resets it after a doubled round', () => {
-    const base = makeState({ ads: { roundsSinceX2: 2 } });
-    const plain = settleRound(base, balance, played(base, 1, 0, 0));
-    expect(plain.state.ads.roundsSinceX2).toBe(3);
+  it('leaves the income boost alone', () => {
+    const base = makeState({ ads: { boostUntil: 123456 } });
     const doubled = settleRound(base, balance, played(base, 1, 0, 0, { doubled: true }));
-    expect(doubled.state.ads.roundsSinceX2).toBe(0);
+    expect(doubled.state.ads.boostUntil).toBe(123456);
   });
 
   it('awards trophy milestones after the round and appends their events in order', () => {
@@ -395,7 +392,7 @@ describe('settleRound', () => {
     expect(again.events.map((e) => e.type)).toEqual(['roundEnded']);
   });
 
-  it('a ×2 round through shotInputFor and recordShot pays twice as much', () => {
+  it('a boosted round through shotInputFor and recordShot pays twice as much', () => {
     const state = makeState();
     const plainRound = roundFor(state);
     const doubledRound = roundFor(state, { doubled: true });
@@ -403,7 +400,7 @@ describe('settleRound', () => {
     const doubledValue = shotInputFor(state, balance, doubledRound, 0, 1, 0).valueIfHit;
     const plain = settleRound(state, balance, recordShot(plainRound, result(true, plainValue)));
     const doubled = settleRound(state, balance, recordShot(doubledRound, result(true, doubledValue)));
-    expect(doubled.state.sports.basketball.money).toBeCloseTo(plain.state.sports.basketball.money * balance.ads.x2RoundMult, 12);
+    expect(doubled.state.sports.basketball.money).toBeCloseTo(plain.state.sports.basketball.money * balance.ads.boostMult, 12);
     expect(plain.state.sports.basketball.money).toBe(foam.value);
   });
 

@@ -7,6 +7,7 @@
  *     npm run screenshot                      writes screenshots/*.png
  *     npx tsx tools/screenshot.ts --skip-export   reuse the last dist/ export
  *     npx tsx tools/screenshot.ts --chrome "C:/path/to/chrome.exe"
+ *     npx tsx tools/screenshot.ts --dist dist-a --out shots-a --port 8801   parallel runs (one per agent) must not share these
  *
  * Nothing here is part of the app. The export goes to dist/ (ignored), CanvasKit is copied into public/ (ignored).
  */
@@ -16,13 +17,6 @@ import { createServer, type Server } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import puppeteer from 'puppeteer-core';
 
-const root = resolve(__dirname, '..');
-const dist = join(root, 'dist');
-const out = join(root, 'screenshots');
-const PORT = 8799;
-const WIDTH = 375;
-const HEIGHT = 812;
-
 function flag(name: string): boolean {
   return process.argv.includes(`--${name}`);
 }
@@ -31,6 +25,13 @@ function option(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1]! : fallback;
 }
+
+const root = resolve(__dirname, '..');
+const dist = join(root, option('dist', 'dist'));
+const out = join(root, option('out', 'screenshots'));
+const PORT = Number(option('port', '8799'));
+const WIDTH = 375;
+const HEIGHT = 812;
 
 const CHROME_CANDIDATES = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -83,7 +84,7 @@ async function main(): Promise<void> {
   copyFileSync(join(root, 'node_modules/canvaskit-wasm/bin/full/canvaskit.wasm'), join(root, 'public/canvaskit.wasm'));
   if (!flag('skip-export')) {
     console.log('exporting web bundle…');
-    execSync('npx expo export --platform web --output-dir dist', { cwd: root, stdio: 'inherit', env: { ...process.env, CI: '1' } });
+    execSync(`npx expo export --platform web --output-dir ${option('dist', 'dist')}`, { cwd: root, stdio: 'inherit', env: { ...process.env, CI: '1' } });
   }
   mkdirSync(out, { recursive: true });
   const server = serve(dist, PORT);
@@ -96,7 +97,7 @@ async function main(): Promise<void> {
       const type = m.type();
       if (type === 'error' || type === 'warn') console.log(`console ${type}:`, m.text());
     });
-    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle0', timeout: 90_000 });
+    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'load', timeout: 90_000 });
     await page.waitForSelector('canvas', { timeout: 60_000 });
     await new Promise((r) => setTimeout(r, 800));
     await page.screenshot({ path: join(out, '01-idle.png') });
@@ -117,6 +118,32 @@ async function main(): Promise<void> {
     await page.screenshot({ path: join(out, '04-midround.png') });
     await new Promise((r) => setTimeout(r, 7000));
     await page.screenshot({ path: join(out, '05-result.png') });
+
+    // The boost offer popped in on the left after the round: take it twice (the fake ad takes 0.8 s), so the timer shows 20 minutes.
+    for (let i = 0; i < 2; i++) {
+      const offer = await page.$('[aria-label^="Watch an ad: ×2"]');
+      if (!offer) throw new Error('boost offer not found');
+      await offer.tap();
+      await new Promise((r) => setTimeout(r, 1400));
+    }
+    await page.screenshot({ path: join(out, '06-boost.png') });
+
+    // Two offers stacked: a pending offline double in the save, then a reload (the welcome-back panel is not shown for it).
+    await page.evaluate(() => {
+      const key = 'hit-your-shot/save';
+      const file = JSON.parse(localStorage.getItem(key) ?? '{}');
+      file.state.offline.pendingDouble = 48;
+      localStorage.setItem(key, JSON.stringify(file));
+      // The app saves again when the page goes away; keep this edited save for the reload.
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (k: string, v: string) {
+        if (k !== key) setItem.call(this, k, v);
+      };
+    });
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('canvas', { timeout: 60_000 });
+    await new Promise((r) => setTimeout(r, 1500));
+    await page.screenshot({ path: join(out, '07-offers.png') });
     console.log(`written: ${out}`);
   } finally {
     await browser.close();
