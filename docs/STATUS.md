@@ -26,6 +26,9 @@ Where the project stands and what comes next. Updated 2026-11-22.
   (`src/features/play/layers/`), one owner each. Full arena, stadium and course; hoop, goal and hole redrawn; character in a shaded
   basketball kit with squash and stretch; balls with tones, seams, trails and fire on streaks; flowing-dot aim guide; hit flash,
   sparks, confetti, popup words, streak shake (no rising coin); 3D UI with Lilita labels, navy tray, new card icons; telephoto camera.
+- **Ad offers (2026-11-22, `docs/decisions.md`):** offer cards pop in on the left between rounds and stack from the top; each ad adds
+  10 minutes of ×2 income up to 2 hours, with a countdown pill; the offline double waits there too. The ×2 button by the play button is
+  gone, and the play button grows with "PLAY AGAIN". Save version 2.
 - **Sound (2026-11-22):** 10 synthesized effects (`npm run sfx` writes `assets/sfx/`), expo-audio service with player pools and rate
   limits, sounds timed to the balls on screen (`src/features/play/useShotSounds.ts`), crowd cheer on streaks.
 - Phone tests: 2026-11-15 (aiming and shooting work; balls were invisible, fixed), 2026-11-16 morning (balls visible; the owner asked

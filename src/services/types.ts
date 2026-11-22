@@ -18,7 +18,7 @@ export interface AdResult {
 
 export interface AdsService {
   /** Shows a rewarded ad. Resolves rewarded=true only when the user earned the reward. */
-  showRewarded(placement: 'x2_round' | 'offline_double'): Promise<AdResult>;
+  showRewarded(placement: 'boost' | 'offline_double'): Promise<AdResult>;
   readonly isTest: boolean;
 }
 

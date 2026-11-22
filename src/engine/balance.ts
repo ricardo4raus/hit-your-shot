@@ -109,7 +109,12 @@ export const BalanceSchema = z.object({
     minSecondsAway: z.number().nonnegative(),
     adDoubleMult: z.number().gt(1),
   }),
-  ads: z.object({ x2RoundMult: z.number().gt(1), x2EveryRounds: z.number().int().positive() }),
+  ads: z.object({
+    boostMult: z.number().gt(1),
+    boostMinutes: z.number().positive(),
+    boostCapMinutes: z.number().positive(),
+    offerSeconds: z.number().positive(),
+  }),
   shop: z.object({ removeAdsPriceUsd: z.number().positive(), removeAdsProductId: z.string() }),
   commentary: z.object({ heavyBallPenaltyDeg: z.number().nonnegative(), manyBallsShots: z.number().int().positive() }),
   sports: z.object({ basketball: SportDefSchema, football: SportDefSchema, golf: SportDefSchema }),

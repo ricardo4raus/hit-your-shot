@@ -74,8 +74,11 @@
     "adDoubleMult": 2
   },
   "ads": {
-    "x2RoundMult": 2,
-    "x2EveryRounds": 3
+    "_comment": "Owner 2026-11-22: each rewarded ad adds boostMinutes of ×boostMult income, stacking up to boostCapMinutes. An offer card stays offerSeconds.",
+    "boostMult": 2,
+    "boostMinutes": 10,
+    "boostCapMinutes": 120,
+    "offerSeconds": 60
   },
   "shop": {
     "removeAdsPriceUsd": 2.99,

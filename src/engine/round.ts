@@ -14,14 +14,14 @@
  * - shotInputFor(state, balance, round, limb, aim, t): ShotInput (aim = yaw) with spreadDeg from upgrades.spreadDeg, offset from limbs.muzzleOffsets,
  *   valueIfHit from hitValue.
  * - hitValue(state, balance, sportId, ball, doubled) = ball.value × upgrades.incomeMult(income level) × trophies.masteryBonus(state)
- *   × (doubled ? balance.ads.x2RoundMult : 1). Not rounded; money is rounded only for display.
+ *   × (doubled ? balance.ads.boostMult : 1). Not rounded; money is rounded only for display. doubled = the boost ran at round start.
  * - recordShot(round, result): shots + 1, hits + (hit ? 1 : 0), money + result.value. Returns a new round.
  * - settleRound(state, balance, round): round must not be finished ('invalid' otherwise). Sport money += round.money,
  *   lastRoundMoney = round.money, roundsPlayed + 1, lifetimeMoney, shotsFired, hits, bestRound (newBest when round.money > bestRound,
- *   strictly). ads.roundsSinceX2 + 1 unless round.doubled (then 0). Then trophies.awardMilestones for the sport. Events: roundEnded
+ *   strictly). Then trophies.awardMilestones for the sport. Events: roundEnded
  *   (always, first), newBest (if so), then the trophy events.
  * - Tests (src/engine/__tests__/round.test.ts): interleaved first fire times, due shots respect the cap and never go past the end,
- *   shot input carries the right spread, offset and value, settle updates every counter and emits in order, ×2 doubles value.
+ *   shot input carries the right spread, offset and value, settle updates every counter and emits in order, the boost doubles value.
  *
  * May import: ./types, ./balance, ./state, ./rng, ./ballistics (targetPose only), ./limbs, ./upgrades, ./trophies.
  *
@@ -113,7 +113,7 @@ export function dueShots(round: RoundState, state: GameState, balance: Balance, 
 
 export function hitValue(state: GameState, balance: Balance, sportId: SportId, ball: BallDef, doubled: boolean): number {
   const level = state.sports[sportId].upgrades.income;
-  return ball.value * incomeMult(balance, level) * masteryBonus(state, balance) * (doubled ? balance.ads.x2RoundMult : 1);
+  return ball.value * incomeMult(balance, level) * masteryBonus(state, balance) * (doubled ? balance.ads.boostMult : 1);
 }
 
 export function shotInputFor(state: GameState, balance: Balance, round: RoundState, limb: number, aim: number, t: number): ShotInput {
@@ -159,10 +159,7 @@ export function settleRound(state: GameState, balance: Balance, round: RoundStat
     hits: sport.hits + round.hits,
     bestRound: newBest ? round.money : sport.bestRound,
   };
-  const settled: GameState = {
-    ...withSport(state, sportId, nextSport),
-    ads: { ...state.ads, roundsSinceX2: round.doubled ? 0 : state.ads.roundsSinceX2 + 1 },
-  };
+  const settled: GameState = withSport(state, sportId, nextSport);
 
   const events: GameEvent[] = [{ type: 'roundEnded', sport: sportId, money: round.money, shots: round.shots, hits: round.hits, newBest }];
   if (newBest) events.push({ type: 'newBest', sport: sportId, money: round.money });

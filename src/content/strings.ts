@@ -23,10 +23,19 @@ export const strings = {
     /** Display lettering on the play button; the accessibility labels stay `play` and `playAgain`. */
     playButton: 'PLAY',
     playAgainButton: 'PLAY AGAIN',
-    x2: '×2 this round',
-    x2Watch: 'Watch',
-    x2Free: 'Free',
-    doubled: '×2',
+  },
+  /** Rewarded-ad offers on the left (owner 2026-11-22) and the boost timer above them. */
+  offers: {
+    /** The ×2 on the offer's badge and on the timer. */
+    x2: '×2',
+    boostTime: (minutes: number) => `+${minutes} min`,
+    boostLabel: (minutes: number, free: boolean) =>
+      free ? `×2 money for ${minutes} more minutes, free` : `Watch an ad: ×2 money for ${minutes} more minutes`,
+    doubleTitle: 'Double',
+    doubleLabel: (free: boolean) => (free ? 'Double the money from while you were away, free' : 'Watch an ad: double the money from while you were away'),
+    watch: 'Watch',
+    free: 'Free',
+    timerLabel: (time: string) => `×2 money, ${time} left`,
   },
   shop: {
     title: 'Shop',

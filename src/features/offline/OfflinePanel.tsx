@@ -53,7 +53,7 @@ function OfflineBody({ offline }: OfflineBodyProps) {
           {canDouble ? (
             <StickerButton
               title={strings.offline.double}
-              subtitle={removeAds ? strings.round.x2Free : strings.round.x2Watch}
+              subtitle={removeAds ? strings.offers.free : strings.offers.watch}
               color={colors.accent}
               disabled={busy}
               onPress={double}

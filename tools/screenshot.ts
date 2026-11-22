@@ -118,6 +118,32 @@ async function main(): Promise<void> {
     await page.screenshot({ path: join(out, '04-midround.png') });
     await new Promise((r) => setTimeout(r, 7000));
     await page.screenshot({ path: join(out, '05-result.png') });
+
+    // The boost offer popped in on the left after the round: take it twice (the fake ad takes 0.8 s), so the timer shows 20 minutes.
+    for (let i = 0; i < 2; i++) {
+      const offer = await page.$('[aria-label^="Watch an ad: ×2"]');
+      if (!offer) throw new Error('boost offer not found');
+      await offer.tap();
+      await new Promise((r) => setTimeout(r, 1400));
+    }
+    await page.screenshot({ path: join(out, '06-boost.png') });
+
+    // Two offers stacked: a pending offline double in the save, then a reload (the welcome-back panel is not shown for it).
+    await page.evaluate(() => {
+      const key = 'hit-your-shot/save';
+      const file = JSON.parse(localStorage.getItem(key) ?? '{}');
+      file.state.offline.pendingDouble = 48;
+      localStorage.setItem(key, JSON.stringify(file));
+      // The app saves again when the page goes away; keep this edited save for the reload.
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (k: string, v: string) {
+        if (k !== key) setItem.call(this, k, v);
+      };
+    });
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('canvas', { timeout: 60_000 });
+    await new Promise((r) => setTimeout(r, 1500));
+    await page.screenshot({ path: join(out, '07-offers.png') });
     console.log(`written: ${out}`);
   } finally {
     await browser.close();

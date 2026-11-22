@@ -10,7 +10,7 @@
  *   balance: every ball id in ownedBalls and limbBalls exists in that sport, limbBalls.length === limbs, limbs >= 1, upgrade levels
  *   within [0, maxLevel], all numbers finite and money/trophies non-negative. Return null on ANY problem. Never throw.
  * - serialize(state, now): JSON of the file with savedAt = now.
- * - migrations[n] upgrades a save of version n to n + 1. Empty for version 1.
+ * - migrations[n] upgrades a save of version n to n + 1. Version 2 (2026-11-22): ads.roundsSinceX2 became ads.boostUntil.
  * - Tests (src/engine/__tests__/save.test.ts): round trip, garbage returns null, future version returns null, broken references return null.
  *
  * May import only: ./types, ./balance, ./state, zod.
@@ -20,7 +20,7 @@ import { z } from 'zod';
 import type { Balance } from './balance';
 import { SPORT_IDS, UPGRADE_IDS, type GameState, type SportState } from './types';
 
-export const CURRENT_SAVE_VERSION = 1;
+export const CURRENT_SAVE_VERSION = 2;
 
 export interface SaveFile {
   saveVersion: number;
@@ -31,9 +31,14 @@ export interface SaveFile {
 /**
  * migrations[n] upgrades a save of version n to n + 1. Each migration receives the whole parsed file ({ saveVersion, savedAt, state, ... })
  * and returns the upgraded file, or anything that is not an object to discard the save. deserialize sets saveVersion to n + 1 afterwards.
- * Empty for version 1.
  */
-export const migrations: Record<number, (old: unknown) => unknown> = {};
+export const migrations: Record<number, (old: unknown) => unknown> = {
+  // 1 → 2 (owner 2026-11-22): the ×2-per-round cooldown became a timed boost; an old save starts with no boost.
+  1: (old) => {
+    if (!isRecord(old) || !isRecord(old.state)) return null;
+    return { ...old, state: { ...old.state, ads: { boostUntil: 0 } } };
+  },
+};
 
 // zod v4: z.number() already rejects NaN and both infinities, so every number below is finite.
 const finite = z.number();
@@ -68,7 +73,7 @@ const OfflineStateSchema = z.object({
 });
 
 const AdsStateSchema = z.object({
-  roundsSinceX2: nonNegInt,
+  boostUntil: nonNeg,
 });
 
 const SettingsSchema = z.object({

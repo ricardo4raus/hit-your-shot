@@ -132,3 +132,15 @@ The owner asked why the game looks boring and amateur next to popular mobile gam
 | **Sound**: 10 synthesized effects (`npm run sfx`, `assets/sfx/`) through expo-audio, timed to what the player sees, crowd cheer on streaks. | The game was silent. Needs a listen on the phone. |
 | **UI**: 3D buttons with a lip, Lilita labels, navy tray, new card icons (target, lightning, coin stack), "Lv" chips, round settings button. Money stays the green coin with plain digits (2026-11-19). "NEW BEST!" tag; commentator line as a small caption right of the character. | Buttons looked like web forms; the result covered the character. |
 | **Camera**: telephoto (8 m back, focal 1.68), the hoop about 35% larger, the character about the same size as on 2026-11-19; the sideways offset follows the target distance so the character is on screen in every sport. | `src/features/play/camera.ts`. |
+
+## 2026-11-22, ad offers and the income boost (owner)
+
+After the first look at the overhaul on the phone the owner reported that "PLAY AGAIN" overflowed its button, that the "×2 next round" button covered the upgrade controls so upgrading without watching the ad was hard, and asked for offers like other mobile games: clickable cards that pop up on the left and stack from the top, and ads that give stackable time instead of one doubled round.
+
+| Decision | Reason and notes |
+| --- | --- |
+| **Income boost replaces "×2 this round"**: each rewarded ad adds 10 minutes of ×2 income on top of what is left, up to 2 hours (`balance.ads`). A round that starts while the boost runs pays ×2 for the whole round. The boost is global (all sports) and runs in wall time, also while the app is closed. | Owner request. No cooldown in rounds any more; the 2-hour cap limits it. Engine: `boostLeftMs`, `canAddBoost`, `addBoost` in `src/engine/ads.ts`. Save version 2: old saves start with no boost. |
+| **Offer cards on the left**, under the top bar, stacking from the top, oldest first. They slide in between rounds, have a bar that runs down over 60 seconds, and hide during a round (an ad in the middle of a 10-second round would eat it). The boost card stays after a tap while another 10 minutes fit, so ads can be stacked one after another. A navy pill above the cards counts the boost down, also during rounds. | Owner request. `src/features/offers/OfferStack.tsx`. Nothing ad-related sits near the play button or the cards any more. |
+| **The offline double also waits as an offer**: "Keep" on the welcome-back panel closes it, and the double stays on the left until its bar runs out or the sport is switched. | Gives the stack a second kind of offer; "Keep" no longer throws the double away at once. |
+| **Remove-ads** makes every offer free (no ad), as before. | Unchanged promise of the purchase. |
+| **The play button grows with its lettering** (minimum 176 pt) instead of a fixed width. | "PLAY AGAIN" was cut off on the phone, where font metrics differ from the web build. |

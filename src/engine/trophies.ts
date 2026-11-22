@@ -14,8 +14,7 @@
  * - masteryBonus(state, balance): 1 + incomeBonusPerSport × (number of mastered sports). Applies in every sport.
  * - unlockSport(state, balance, sportId): 'already_owned' if unlocked, 'not_enough_trophies' if trophies < unlockTrophies. Subtract,
  *   set unlocked, event sportUnlocked. Does not switch the current sport.
- * - selectSport(state, sportId): 'locked' if not unlocked; sets currentSport and resets ads.roundsSinceX2 to the x2 cap so the first
- *   round in a sport may use ×2.
+ * - selectSport(state, sportId): 'locked' if not unlocked; sets currentSport. The income boost is global and keeps running.
  * - Tests (src/engine/__tests__/trophies.test.ts): each milestone kind pays once, order stable, mastery bonus counts sports, unlock and select.
  *
  * May import only: ./types, ./balance, ./state.
@@ -98,8 +97,8 @@ export function unlockSport(state: GameState, balance: Balance, sportId: SportId
   return succeed({ ...next, trophies: state.trophies - price }, [{ type: 'sportUnlocked', sport: sportId }]);
 }
 
-/** Switches to an unlocked sport. The ×2 ad is available again for the first round there. */
+/** Switches to an unlocked sport. The income boost is global and keeps running. */
 export function selectSport(state: GameState, balance: Balance, sportId: SportId): ActionResult {
   if (!state.sports[sportId].unlocked) return fail(state, 'locked');
-  return succeed({ ...state, currentSport: sportId, ads: { ...state.ads, roundsSinceX2: balance.ads.x2EveryRounds } });
+  return succeed({ ...state, currentSport: sportId });
 }

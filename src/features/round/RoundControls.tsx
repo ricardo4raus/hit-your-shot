@@ -4,11 +4,11 @@
  * so everything else stands in the empty court right of the character and never covers it: after a round the money it made (the coin
  * and big Nunito digits in a pill, owner 2026-11-19: no display lettering for money), "NEW BEST!" hanging crooked on the pill's corner on
  * a best round (this screen's one odd choice), and the commentator's line as a small two-line caption under it, the way a broadcast
- * shows commentary. Before the first round a hand slides left and right over the same spot with "DRAG TO AIM". The ×2 offer is a small
- * second button under the caption. Everything fades and rises in 280 ms with ease-out; Reduce Motion fades only and holds the hand still.
+ * shows commentary. Before the first round a hand slides left and right over the same spot with "DRAG TO AIM". Ad offers are not here:
+ * they pop in on the left (features/offers/OfferStack.tsx, owner 2026-11-22). Everything fades and rises in 280 ms with ease-out; Reduce Motion fades only and holds the hand still.
  * Touches outside the buttons fall through to the play field so the player can keep aiming.
  */
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -22,8 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { strings } from '@/content/strings';
-import { canWatchX2 } from '@/engine';
-import { balance, useGame } from '@/store/game';
+import { useGame } from '@/store/game';
 import { AppText, HandGlyph, Money, OutlinedText, Pill, StickerButton, border, colors, motion, space, vgrad } from '@/ui';
 
 export interface RoundControlsProps {
@@ -32,7 +31,8 @@ export interface RoundControlsProps {
 }
 
 const RISE_FROM = 24;
-const BUTTON_WIDTH = 176;
+/** The play button's narrowest width; it grows with its lettering ("PLAY AGAIN" must never be cut, whatever the font metrics). */
+const BUTTON_MIN_WIDTH = 176;
 /** The play button's full height: face, lip and outline (StickerButton size "lg"). */
 const BUTTON_HEIGHT = 74;
 /** The play button sinks this far into the cards tray's top edge, level with the Shop tab, to stay clear of the character's arm. */
@@ -52,14 +52,9 @@ function ControlsBody({ bottom }: RoundControlsProps) {
   const busy = useGame((s) => s.busy);
   const offlineOpen = useGame((s) => s.offline !== null);
   const roundsPlayed = useGame((s) => s.state.sports[s.state.currentSport].roundsPlayed);
-  const removeAds = useGame((s) => s.state.removeAds);
-  const x2Available = useGame((s) => canWatchX2(s.state, balance));
-  // The ×2 was taken for the next round already; the button goes away even when removeAds keeps canWatchX2 true.
-  const [x2Taken, setX2Taken] = useState(false);
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    setX2Taken(false);
     progress.value = 0;
     progress.value = withTiming(1, { duration: motion.panelIn, easing: Easing.out(Easing.cubic) });
   }, [result, progress]);
@@ -72,13 +67,6 @@ function ControlsBody({ bottom }: RoundControlsProps) {
   const play = () => {
     useGame.getState().actions.startRound();
   };
-  const watchX2 = async () => {
-    const status = await useGame.getState().actions.watchX2();
-    if (status.ok) setX2Taken(true);
-  };
-
-  const showX2 = x2Available && !(result?.doubled ?? false) && !x2Taken;
-  const x2Title = `${strings.round.x2} · ${removeAds ? strings.round.x2Free : strings.round.x2Watch}`;
   const showHint = !result && roundsPlayed === 0;
 
   return (
@@ -106,7 +94,6 @@ function ControlsBody({ bottom }: RoundControlsProps) {
           </View>
         ) : null}
         {showHint ? <DragHint reduced={reduced} /> : null}
-        {showX2 ? <StickerButton title={x2Title} color={colors.blue} size="sm" disabled={busy} onPress={watchX2} accessibilityLabel={x2Title} /> : null}
       </Animated.View>
       <Animated.View style={rise} pointerEvents="box-none">
         <StickerButton
@@ -117,6 +104,7 @@ function ControlsBody({ bottom }: RoundControlsProps) {
           disabled={busy || offlineOpen}
           onPress={play}
           outerStyle={styles.primary}
+          style={styles.primaryFace}
         />
       </Animated.View>
     </View>
@@ -170,5 +158,6 @@ const styles = StyleSheet.create({
   captionText: { lineHeight: 19 },
   hint: { alignItems: 'center', gap: 2 },
   track: { width: 120, height: 62, alignItems: 'center', justifyContent: 'flex-end' },
-  primary: { width: BUTTON_WIDTH },
+  primary: { minWidth: BUTTON_MIN_WIDTH },
+  primaryFace: { paddingHorizontal: space.lg },
 });

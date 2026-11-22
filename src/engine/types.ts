@@ -70,8 +70,8 @@ export interface OfflineState {
 }
 
 export interface AdsState {
-  /** Rounds finished since the last ×2 ad in the current sport. */
-  roundsSinceX2: number;
+  /** Wall time (ms) the income boost runs until; 0 or the past = no boost. Each rewarded ad adds balance.ads.boostMinutes (ads.ts). */
+  boostUntil: number;
 }
 
 export interface Settings {
@@ -90,7 +90,7 @@ export interface GameState {
   trophies: number;
   offline: OfflineState;
   ads: AdsState;
-  /** One-time purchase. Makes ×2 free and always available. */
+  /** One-time purchase. Makes the boost and the offline double free (no ad). */
   removeAds: boolean;
   settings: Settings;
   /** Advanced by runWithStateRng after every random engine call. */
@@ -166,7 +166,7 @@ export interface RoundState {
   shots: number;
   hits: number;
   money: number;
-  /** ×2 ad used for this round. */
+  /** The income boost was running when the round started: every hit pays balance.ads.boostMult. */
   doubled: boolean;
   finished: boolean;
 }
@@ -194,7 +194,7 @@ export type GameEvent =
   | { type: 'mastered'; sport: SportId }
   | { type: 'sportUnlocked'; sport: SportId }
   | { type: 'offlineEarned'; money: number; seconds: number }
-  | { type: 'x2Applied'; sport: SportId }
+  | { type: 'boostAdded'; until: number }
   | { type: 'removeAdsBought' };
 
 export type ActionResult =

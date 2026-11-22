@@ -2,7 +2,7 @@
  * The one screen (docs/design-rules.md section 6, revised 2026-11-16): the play field fills the whole screen, seen from behind the
  * character. The money pill sits on top. The three upgrade cards sit over the bottom 30% between rounds and slide away while a round
  * plays; above them, between rounds, the play button and the last round's result (features/round/RoundControls.tsx). The shop is a
- * sheet, the offline panel appears on return. The cards sit on a navy tray that belongs to the arena (art direction "polished arcade",
+ * sheet, the offline panel appears on return. Rewarded-ad offers pop in on the left under the top bar (features/offers/OfferStack.tsx). The cards sit on a navy tray that belongs to the arena (art direction "polished arcade",
  * 2026-11-22): a gradient lit from above, rounded top corners, the ink edge and a light line under it.
  */
 import { useEffect, useState } from 'react';
@@ -11,6 +11,7 @@ import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, w
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { UpgradeCards } from '@/features/cards/UpgradeCards';
+import { OfferStack } from '@/features/offers/OfferStack';
 import { OfflinePanel } from '@/features/offline/OfflinePanel';
 import { PlayField } from '@/features/play/PlayField';
 import { TopBar } from '@/features/play/TopBar';
@@ -22,6 +23,8 @@ import { border, colors, drop, motion, radius, vgrad } from '@/ui/theme';
 /** The cards take the bottom 30% of the usable height (design rules section 6), never less than the cards need. */
 const CARDS_MIN_HEIGHT = 236;
 const CARDS_FRACTION = 0.3;
+/** The offer stack starts under the top bar (money pill and settings button). */
+const OFFERS_TOP = 68;
 
 export default function Home() {
   const { width, height } = useWindowDimensions();
@@ -61,6 +64,7 @@ export default function Home() {
       </Animated.View>
       {/* After the tray: the play button sits on the tray's top edge. */}
       <RoundControls bottom={cardsHeight} />
+      <OfferStack top={insets.top + OFFERS_TOP} />
       <ShopSheet visible={shopOpen} onClose={() => setShopOpen(false)} />
       <OfflinePanel />
     </View>

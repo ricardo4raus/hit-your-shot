@@ -28,7 +28,7 @@ function richState(): GameState {
       clockHighWater: T0 + 2000,
       trophies: 3,
       offline: { pendingDouble: 12, lastSeconds: 600 },
-      ads: { roundsSinceX2: 2 },
+      ads: { boostUntil: T0 + 600_000 },
       removeAds: true,
       settings: { sound: false, haptics: true },
       rngState: 987654321,
@@ -166,6 +166,19 @@ describe('deserialize rejects', () => {
   it('never throws, whatever the input', () => {
     const inputs = [undefined, null, 5, {}, [], Symbol('x'), () => 1] as unknown as string[];
     for (const raw of inputs) expect(() => deserialize(raw, balance)).not.toThrow();
+  });
+});
+
+describe('version 1 saves', () => {
+  it('load with the old ×2 cooldown replaced by no boost', () => {
+    const v1 = savedWith((f) => {
+      f.saveVersion = 1;
+      (f.state as unknown as Record<string, unknown>).ads = { roundsSinceX2: 2 };
+    });
+    const loaded = deserialize(v1, balance);
+    expect(loaded).not.toBeNull();
+    expect(loaded?.ads).toEqual({ boostUntil: 0 });
+    expect(loaded?.trophies).toBe(richState().trophies);
   });
 });
 
