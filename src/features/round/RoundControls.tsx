@@ -91,7 +91,7 @@ function ControlsBody({ bottom }: RoundControlsProps) {
             </Pill>
             {result.newBest ? (
               <View style={styles.newTag} accessibilityLabel={strings.round.best}>
-                <OutlinedText size={22} color={colors.cash} stroke={3} dropDepth={3}>
+                <OutlinedText size={22} color={colors.cash} stroke={3}>
                   {strings.round.newBest}
                 </OutlinedText>
               </View>
@@ -143,7 +143,7 @@ function DragHint({ reduced }: { reduced: boolean }) {
           <HandGlyph size={56} />
         </Animated.View>
       </View>
-      <OutlinedText size={24} color={colors.paper} stroke={3} dropDepth={3} decorative>
+      <OutlinedText size={24} color={colors.paper} stroke={3} decorative>
         {strings.round.dragToAim}
       </OutlinedText>
     </View>

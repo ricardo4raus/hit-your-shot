@@ -22,7 +22,7 @@ export function TopBar() {
       <View style={styles.side} />
       <Animated.View style={pop}>
         <Pill color={colors.panel} style={styles.pill}>
-          <Money amount={money} size="md" color={colors.onPanel} raised live />
+          <Money amount={money} size="md" color={colors.onPanel} live />
         </Pill>
       </Animated.View>
       <View style={[styles.side, styles.right]}>

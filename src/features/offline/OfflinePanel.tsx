@@ -37,14 +37,14 @@ function OfflineBody({ offline }: OfflineBodyProps) {
   return (
     <ScrimCenter accessibilityLabel={strings.offline.title}>
       <Sticker color={colors.panel} style={styles.panel} outerStyle={styles.panelOuter}>
-        <OutlinedText size={30} color={colors.paper} stroke={3} dropDepth={3} center style={styles.title}>
+        <OutlinedText size={30} color={colors.paper} stroke={3} center style={styles.title}>
           {strings.offline.welcome}
         </OutlinedText>
         <AppText variant="label" color={colors.onPanelSoft} center>
           {strings.offline.title}
         </AppText>
         <View style={styles.well}>
-          <Money amount={offline.money} size="xl" plus color={colors.onPanel} raised />
+          <Money amount={offline.money} size="xl" plus color={colors.onPanel} />
           <AppText variant="body" color={colors.onPanelSoft} center>
             {strings.offline.away(formatTimeAway(offline.seconds))}
           </AppText>

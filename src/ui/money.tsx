@@ -1,8 +1,8 @@
 /**
  * Money on screen (owner 2026-11-19: "a green money icon that makes sense and the numbers like a normal mobile game"): a green coin, then
- * plain bold digits in Nunito. Never display lettering. The coin is chunky and lit from the upper left: a darker edge under it (the coin's
- * thickness), a face with a lighter top, a highlight and an inner ring. On a saturated or dark fill the digits get a short ink drop so
- * they read like game numbers while staying Nunito. One component at four sizes: prices on buttons, the pill, the round's result.
+ * plain bold digits in Nunito. Never display lettering. The coin is lit from the upper left: a face with a lighter top, a highlight and an
+ * inner ring, inside one ink outline of the same width all round (owner 2026-11-22: no edge or drop under coins or digits, it read as a
+ * doubled bottom border). One component at four sizes: prices on buttons, the pill, the round's result.
  */
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -19,21 +19,18 @@ const GAP: Record<MoneySize, number> = { sm: 4, md: 6, lg: 8, xl: 8 };
 
 const COIN_TOP = shade(colors.good, 0.35);
 const COIN_LOW = shade(colors.good, -0.12);
-const COIN_EDGE = shade(colors.good, -0.42);
 
 export interface CoinGlyphProps {
   size?: number;
 }
 
-/** A green coin with thickness: an edge disc under a lit face, a highlight, an inner ring and a dollar sign. Decorative. */
+/** A green coin: a lit face, a highlight, an inner ring and a dollar sign in one even outline. Decorative. */
 export function CoinGlyph({ size = 22 }: CoinGlyphProps) {
-  const edge = Math.max(2, Math.round(size * 0.1));
-  const face = size - edge;
+  const face = size;
   const bw = size >= 28 ? border.width : border.thin;
   const inner = face - 2 * bw - Math.max(3, size * 0.14);
   return (
     <View style={{ width: size, height: size }} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden aria-hidden>
-      <View style={[styles.disc, { top: edge, width: size, height: face, borderRadius: size / 2, borderWidth: bw, backgroundColor: COIN_EDGE }]} />
       <View
         style={[
           styles.disc,
@@ -59,12 +56,10 @@ export interface MoneyProps {
   plus?: boolean;
   /** Tabular digits and a fixed minimum width for a number that changes every frame. */
   live?: boolean;
-  /** A short ink drop under the digits, for digits on a saturated or dark fill. */
-  raised?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
-export function Money({ amount, size = 'md', color = colors.ink, plus, live, raised, style }: MoneyProps) {
+export function Money({ amount, size = 'md', color = colors.ink, plus, live, style }: MoneyProps) {
   const text = (plus ? '+' : '') + formatAmount(amount);
   const fs = DIGITS[size];
   return (
@@ -76,7 +71,6 @@ export function Money({ amount, size = 'md', color = colors.ink, plus, live, rai
         numberOfLines={1}
         style={[
           { fontFamily: font.family.bold, fontSize: fs, lineHeight: Math.round(fs * 1.25) },
-          raised && { textShadowColor: colors.ink, textShadowOffset: { width: 0, height: Math.max(2, fs / 10) }, textShadowRadius: 0 },
           live && { minWidth: fs * 3.2, textAlign: 'left' },
         ]}
       >

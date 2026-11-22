@@ -422,7 +422,6 @@ export function CharacterLayer({ def, sportId, cam, clock, anchors, aim, round: 
         {font && lettering ? (
           <>
             <Group transform={lettering.number.transform}>
-              <Text x={1 / lettering.number.k} y={1.2 / lettering.number.k} text={NUMBER} font={font} color={team.shade} />
               <Text x={0} y={0} text={NUMBER} font={font} color={ink} style="stroke" strokeWidth={(1.7 * inkCm) / lettering.number.k} strokeJoin="round" />
               <Text x={0} y={0} text={NUMBER} font={font} color={trim.base} />
             </Group>

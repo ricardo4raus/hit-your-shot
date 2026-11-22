@@ -139,9 +139,9 @@ export function StickerButton({
             <>
               {title ? <ButtonLetters text={title} size={LETTER[size]} color={ink} light={light && !textColor} /> : null}
               {money !== undefined ? (
-                <Money amount={money} size={title ? 'sm' : size === 'lg' ? 'md' : 'sm'} color={light ? colors.ink : colors.paper} raised={!light} />
+                <Money amount={money} size={title ? 'sm' : size === 'lg' ? 'md' : 'sm'} color={light ? colors.ink : colors.paper} />
               ) : subtitle ? (
-                <AppText variant="label" color={ink} center numberOfLines={1} style={!light && styles.raisedText}>
+                <AppText variant="label" color={ink} center numberOfLines={1}>
                   {subtitle}
                 </AppText>
               ) : null}
@@ -232,5 +232,4 @@ const styles = StyleSheet.create({
   buttonFace: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 2 },
   gloss: { position: 'absolute', top: 3, left: 8, right: 8, backgroundColor: 'rgba(255, 255, 255, 0.22)' },
   pill: { borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  raisedText: { textShadowColor: colors.ink, textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 0 },
 });

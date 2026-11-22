@@ -62,7 +62,7 @@ export default function Settings() {
     <View style={[styles.root, { paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + space.lg }]}>
       <StatusBar style="light" />
       <View style={styles.header}>
-        <OutlinedText size={32} color={colors.paper} stroke={3} dropDepth={3}>
+        <OutlinedText size={32} color={colors.paper} stroke={3}>
           {strings.settings.title}
         </OutlinedText>
         <RoundButton accessibilityLabel={strings.settings.close} color={colors.bad} onPress={close}>

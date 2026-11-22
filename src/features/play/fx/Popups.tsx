@@ -1,6 +1,6 @@
 /**
- * Popup words on a hit ("SWISH!", "NICE!", streak words like "ON FIRE!"): Lilita One with a thick ink outline, a hard ink drop shadow
- * and a warm gradient fill, popping in with a little overshoot, rising and fading. An ordinary word sits over the target; a streak
+ * Popup words on a hit ("SWISH!", "NICE!", streak words like "ON FIRE!"): Lilita One with a thick ink outline of the same width on every
+ * side (no drop under it, owner 2026-11-22) and a warm gradient fill, popping in with a little overshoot, rising and fading. An ordinary word sits over the target; a streak
  * milestone word is bigger, gold and centered below the target. Drawn in the Skia canvas above everything else, from a fixed pool of
  * SLOTS text groups that show the most recent live popups; which hits get a word is decided by the planner (fx/hitPlan.ts), so a flood
  * of hits never floods the screen. Reduce Motion: no pop, no rise; the fade stays.
@@ -119,7 +119,6 @@ function PopSlot({ index, slots, font }: { index: number; slots: SharedValue<Slo
   const left = useDerivedValue(() => slots.value[index]!.left);
   // Text is drawn on its baseline: put the baseline so the cap height is centered on y.
   const base = useDerivedValue(() => slots.value[index]!.y + 0.36 * POP_FONT_SIZE);
-  const shadowBase = useDerivedValue(() => slots.value[index]!.y + 0.36 * POP_FONT_SIZE + 4);
   const opacity = useDerivedValue(() => slots.value[index]!.opacity);
   const transform = useDerivedValue(() => {
     const s = slots.value[index]!;
@@ -131,7 +130,6 @@ function PopSlot({ index, slots, font }: { index: number; slots: SharedValue<Slo
   const gColors = useDerivedValue(() => (slots.value[index]!.big ? [fx.cream, fx.spark, fx.gold] : [fx.white, fx.white, colors.cash]));
   return (
     <Group transform={transform} opacity={opacity}>
-      <Text text={text} font={font} x={left} y={shadowBase} color={colors.ink} style="stroke" strokeWidth={9} strokeJoin="round" />
       <Text text={text} font={font} x={left} y={base} color={colors.ink} style="stroke" strokeWidth={9} strokeJoin="round" />
       <Text text={text} font={font} x={left} y={base}>
         <LinearGradient start={gStart} end={gEnd} colors={gColors} />

@@ -86,7 +86,7 @@ function UpgradeCard({ id }: UpgradeCardProps) {
 
   return (
     <Sticker color={color} outerStyle={styles.cardOuter} style={styles.card}>
-      <OutlinedText size={16} stroke={2} dropDepth={2} color={colors.paper} center style={styles.title}>
+      <OutlinedText size={16} stroke={2} color={colors.paper} center style={styles.title}>
         {name}
       </OutlinedText>
       <Animated.View style={[styles.icon, iconStyle]}>

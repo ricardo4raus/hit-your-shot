@@ -90,12 +90,12 @@ function ShopContent({ onClose }: ShopContentProps) {
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        <OutlinedText size={32} color={colors.paper} stroke={3} dropDepth={3}>
+        <OutlinedText size={32} color={colors.paper} stroke={3}>
           {strings.shop.title}
         </OutlinedText>
         <View style={styles.moneyPill}>
           <Pill color={colors.well}>
-            <Money amount={sport.money} size="md" color={colors.onPanel} raised />
+            <Money amount={sport.money} size="md" color={colors.onPanel} />
           </Pill>
         </View>
         <RoundButton accessibilityLabel={strings.shop.close} color={colors.bad} onPress={onClose}>
@@ -128,7 +128,7 @@ function ShopContent({ onClose }: ShopContentProps) {
             <Sticker color={colors.arm} style={styles.trainerCard}>
               <Silhouette />
               <View style={styles.grow}>
-                <AppText variant="label" color={colors.paper} style={styles.raised}>
+                <AppText variant="label" color={colors.paper}>
                   {strings.shop.next}
                 </AppText>
                 <OutlinedText size={24} color={colors.paper}>
@@ -280,7 +280,6 @@ const styles = StyleSheet.create({
   grow: { flex: 1, gap: 2 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   shrinkText: { flexShrink: 1 },
-  raised: { textShadowColor: colors.ink, textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 0 },
   tag: { paddingHorizontal: 7, height: 20, borderRadius: 7, backgroundColor: colors.good, borderWidth: border.thin, borderColor: colors.ink, justifyContent: 'center' },
   tagText: { fontFamily: font.family.display, fontSize: font.size.caption + 1, lineHeight: 16, color: colors.ink },
   action: { width: 112 },
