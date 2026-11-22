@@ -1,6 +1,6 @@
 # Status
 
-Where the project stands and what comes next. Updated 2026-11-16.
+Where the project stands and what comes next. Updated 2026-11-22.
 
 ## Done
 
@@ -21,20 +21,27 @@ Where the project stands and what comes next. Updated 2026-11-16.
 - Screenshot tool (`npm run screenshot`): exports the web build, opens it in headless Chrome at phone size and writes PNGs of idle,
   aiming, the first shots, mid-round and the result. The lead now sees the game before the owner does. The web build runs the real app
   (CanvasKit for Skia, localStorage for the save).
-- Hit feedback (2026-11-19): net swish, rim ring, coin pop and the money pill's pop. Money everywhere as the green coin plus digits.
+- Hit feedback (2026-11-19): net swish, rim ring and the money pill's pop. Money everywhere as the green coin plus digits.
+- **Visual overhaul (2026-11-22, `docs/decisions.md`):** "polished arcade" art direction. The play field is split into layer files
+  (`src/features/play/layers/`), one owner each. Full arena, stadium and course; hoop, goal and hole redrawn; character in a shaded
+  basketball kit with squash and stretch; balls with tones, seams, trails and fire on streaks; flowing-dot aim guide; hit flash,
+  sparks, confetti, popup words, streak shake (no rising coin); 3D UI with Lilita labels, navy tray, new card icons; telephoto camera.
+- **Sound (2026-11-22):** 10 synthesized effects (`npm run sfx` writes `assets/sfx/`), expo-audio service with player pools and rate
+  limits, sounds timed to the balls on screen (`src/features/play/useShotSounds.ts`), crowd cheer on streaks.
 - Phone tests: 2026-11-15 (aiming and shooting work; balls were invisible, fixed), 2026-11-16 morning (balls visible; the owner asked
   for the third-person view and the new round flow, both built the same day), 2026-11-16 afternoon (third-person works; basket too hard
   to hit, aim line wanted as the flight arc; both done).
 
 ## Not yet done
 
-- **Fourth phone test**: the wider basket and slower rail, the aim arc in the air, the two spread arcs; the cards sliding away and back;
-  the play button.
+- **Phone test of the visual overhaul**: frame rate in Expo Go with the arena, the crowd and the hit effects; how the synthesized
+  sounds sound; whether the first sound lags while the players load.
 - Balance: tuned with the simulator's greedy bot, not with people. The bot's quiet stretches (17 min without a purchase while it
   saves for a trainer) overstate a player's. Known from a probe on the new engine: in football the keeper blocks about a third of
   everything and accuracy barely matters (the goal is wide); in golf a flat shot rolls past the hole below accuracy 20. Football and
   golf are not in version 1. Tune again after real play.
-- Sound: `services.audio` is silent. Needs CC0 sounds per design rules section 11.
+- Sound: synthesized placeholders; golf and football have no surface sounds of their own (walls and ceiling use the floor sound).
+  Audio cheers (landing order) and popup streak words (firing order) count streaks separately.
 - Icon, splash and store assets: template placeholders.
 - Character: rig with knees, elbows, wrists and the shot cycle is in (2026-11-16); still missing: the face (shows when the character
   looks over its shoulder), the strain face and longer dip for heavy balls, limb fold-in on arrival, the new-ball roll-in, the football

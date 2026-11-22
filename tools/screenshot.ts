@@ -97,7 +97,7 @@ async function main(): Promise<void> {
       const type = m.type();
       if (type === 'error' || type === 'warn') console.log(`console ${type}:`, m.text());
     });
-    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle0', timeout: 90_000 });
+    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'load', timeout: 90_000 });
     await page.waitForSelector('canvas', { timeout: 60_000 });
     await new Promise((r) => setTimeout(r, 800));
     await page.screenshot({ path: join(out, '01-idle.png') });

@@ -117,3 +117,18 @@ Verified on the owner's phone before this change: balls visible with outlines (f
 | **Hit feedback.** Net swish, a ring spreading from the rim, a green coin popping up from the hoop, the money pill popping. | Owner: "no feedback when a ball goes through the ring". Per design rules section 9; sound still missing. |
 | **Smaller, slimmer character.** Camera 3.8 m back (was 3.0), torso 0.26 m wide (was 0.30), thinner arms and legs, smaller head. | Owner: "too big and too fat". |
 | **Money as a green coin and plain digits**, never display lettering: pill, prices on buttons, round result, shop, offline panel. `cash` yellow stays for "NEW!" only. | Owner: "the 3D money font or style is not good; a green money icon that makes sense and the numbers like a normal mobile game". |
+
+## 2026-11-22, visual overhaul (owner)
+
+The owner asked why the game looks boring and amateur next to popular mobile games, read the review (flat unlit shapes, programmer-art character, empty pastel court, debug-looking aim lines, almost no hit feedback, no sound, flat web-form buttons, interface over the character), and said: "change everything you have found; the hit feedback with the coin going up is not good".
+
+| Decision | Reason / note |
+|---|---|
+| **New art direction "polished arcade"** replaces the flat pastel look: saturated, lit from the upper left, 2-3 tones per shape, gradients, soft shadows, glow for lights and effects, full backgrounds. Outline, fonts and deadpan voice stay. Design rules sections 1, 3, 4, 6, 8, 9, 10, 11, 12, 14 rewritten. | The flat rules were consistent but read as a wireframe. |
+| **Arena, stadium and course** drawn in full (crowd, lights, banners, wood court with lines; striped pitch with keeper figure; fairway with trees). Hoop with framed glass board, three-tone rim, mesh net. | `src/features/play/layers/court/`. |
+| **Character in a basketball kit**: red-pink jersey, number 7, invented name "SWISH", shorts, striped socks, sneakers, headband; shaded limbs, real hands; squash and stretch in the shot. "Not an athlete" dropped for this character. | `src/features/play/character/`. |
+| **Hit feedback**: flash, ring, sparks and confetti, popup words ("SWISH!", streak words), fire trail on streaks, shake on streak milestones only, money pill pops when the ball lands. **No rising coin.** Missed balls shrink away after landing. | Owner disliked the coin. `src/features/play/fx/`. |
+| **Aim guide**: flowing dots, a landing ring, a subtle spread zone instead of grey arcs. | The old lines read as a debug overlay. |
+| **Sound**: 10 synthesized effects (`npm run sfx`, `assets/sfx/`) through expo-audio, timed to what the player sees, crowd cheer on streaks. | The game was silent. Needs a listen on the phone. |
+| **UI**: 3D buttons with a lip, Lilita labels, navy tray, new card icons (target, lightning, coin stack), "Lv" chips, round settings button. Money stays the green coin with plain digits (2026-11-19). "NEW BEST!" tag; commentator line as a small caption right of the character. | Buttons looked like web forms; the result covered the character. |
+| **Camera**: telephoto (8 m back, focal 1.68), the hoop about 35% larger, the character about the same size as on 2026-11-19; the sideways offset follows the target distance so the character is on screen in every sport. | `src/features/play/camera.ts`. |
