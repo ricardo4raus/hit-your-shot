@@ -14,6 +14,16 @@ export const TWO_PI = 2 * Math.PI;
 export interface HitRec {
   atMs: number;
   z: number;
+  /** Where the ball crossed the sensor (world meters): the burst starts there. */
+  bx: number;
+  by: number;
+  bz: number;
+  /** Consecutive hits including this one, in firing order (a miss resets it). */
+  streak: number;
+  /** No rim, board or keeper contact before the hit. */
+  clean: boolean;
+  /** Effect level after throttling: 0 none (a flood of hits shares one burst), 1 a burst, 2 a streak milestone. */
+  fx: number;
 }
 
 /** When each limb first fires after the round start, how often, and its ball radius in meters. */

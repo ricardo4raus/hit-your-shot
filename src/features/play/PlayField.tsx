@@ -2,26 +2,34 @@
  * The play field, seen from behind the character (owner decision 2026-11-16): the character fills the lower middle of the screen with its
  * back to the player, the target sits ahead and smaller, balls fly into the picture. One Skia canvas composed of layers in depth order
  * (layers/): world, ball shadows, balls behind the target, target, hit effects, balls between target and character, the character posed
- * by the rig every frame, the aim guide, balls in front of the character. Ball positions are computed on the UI thread from the segments
- * the engine produced (docs/architecture.md, "The round, live"); React never re-renders per frame.
+ * by the rig every frame, the aim guide, balls in front of the character, popup words. Ball positions are computed on the UI thread
+ * from the segments the engine produced (docs/architecture.md, "The round, live"); React never re-renders per frame.
+ * Juice: each shot batch goes through the hit planner (fx/hitPlan.ts) on the JS thread once: the hit streak in firing order, the fire
+ * trail, which hits burst and which get a popup word (throttled), the money pill's pop at the hit's time, and a light shake of the
+ * whole canvas on a streak milestone (not with Reduce Motion).
  * Drag left or right anywhere on the field to aim: the finger's position over the target plane is the aim point. The round is started
  * by the play button (features/round/RoundControls.tsx), not by the drag.
  * Owner of this file: the "juice" agent (wiring only; each layer has its own owner).
  */
-import { Canvas, useClock } from '@shopify/react-native-skia';
-import { useEffect, useMemo } from 'react';
+import { LilitaOne_400Regular } from '@expo-google-fonts/lilita-one';
+import { Canvas, Group, useClock, useFont } from '@shopify/react-native-skia';
+import { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import { runOnJS, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 
 import { ballDefOf, limbAnchors, limbRates, muzzleOffsets, spreadDeg, type ShotResult } from '@/engine';
 import { balance, useGame } from '@/store/game';
 import { onShots } from '@/store/shotBus';
-import { pulseMoney } from '@/ui/feedback';
+import { pulseMoneyAt } from '@/ui/feedback';
 
 import { makeCamera, worldZ, type Camera } from './camera';
+import { makePlanner, planShot, resetPlanner } from './fx/hitPlan';
+import { POP_FONT_SIZE, Popups, type PopRec } from './fx/Popups';
+import { useShakeTransform, type ShakeRec } from './fx/shake';
 import { AimLayer, MAX_YAW } from './layers/AimLayer';
-import { BallGroup, BallShadows, SEG, useBallFrame, type BallRec } from './layers/Balls';
+import { BallGroup, BallShadows, FADE_DELAY_SEC, SEG, useBallFrame, type BallRec } from './layers/Balls';
+import { ballColors } from './layers/ballLook';
 import { CharacterLayer } from './layers/CharacterLayer';
 import { HIT_SEC, HitFx } from './layers/HitFx';
 import { TWO_PI, type HitRec, type RoundClock, type Schedule } from './layers/shared';
@@ -29,9 +37,16 @@ import { TargetLayer } from './layers/TargetLayer';
 import { WorldLayer } from './layers/WorldLayer';
 import { useShotSounds } from './useShotSounds';
 
-const MAX_HITS = 64;
-/** Packed batch layout per shot: [end, r, segmentCount, then segmentCount × SEG numbers]. One flat array crosses to the UI thread per tick. */
-const HEAD = 3;
+/** Hits waiting or showing on the UI thread (they are known when fired, about a second before they land). */
+const MAX_HITS = 256;
+const MAX_POPS = 12;
+/**
+ * Packed batch layout per shot: [end, r, fadeAt, fire, spin, segmentCount, then segmentCount × SEG numbers]. One flat array crosses to
+ * the UI thread per tick.
+ */
+const HEAD = 6;
+/** fadeAt for a ball that never fades early. */
+const NO_FADE = 1e9;
 const MAX_BALLS = balance.physics.maxBallsInFlight;
 /** Balls nearer than this in front of the shot origin are drawn over the character. */
 const NEAR_DEPTH = 0.35;
@@ -83,6 +98,13 @@ export function PlayField({ width, height }: PlayFieldProps) {
 
   // Shared values the UI thread reads every frame.
   const clock = useClock();
+  const reduced = useReducedMotion();
+  const font = useFont(LilitaOne_400Regular, POP_FONT_SIZE);
+  const fontRef = useRef(font);
+  fontRef.current = font;
+  const planner = useRef(makePlanner());
+  const pops = useSharedValue<PopRec[]>([]);
+  const shake = useSharedValue<ShakeRec>({ atMs: 0, amp: 0 });
   const balls = useSharedValue<BallRec[]>([]);
   const hits = useSharedValue<HitRec[]>([]);
   const aim = useSharedValue(0);
@@ -105,6 +127,18 @@ export function PlayField({ width, height }: PlayFieldProps) {
     roundSV.value = { startMs: roundStartedAt, playing };
   }, [roundStartedAt, playing, roundSV]);
   useEffect(() => {
+    resetPlanner(planner.current);
+  }, [roundStartedAt]);
+  // When the round ends the result takes the screen: words for balls still in the air would land on top of it, so they are dropped.
+  useEffect(() => {
+    if (playing) return;
+    pops.modify((list) => {
+      'worklet';
+      list.length = 0;
+      return list;
+    });
+  }, [playing, pops]);
+  useEffect(() => {
     phase.value = roundPhase;
     if (!playing) return;
     balls.modify((list) => {
@@ -124,10 +158,35 @@ export function PlayField({ width, height }: PlayFieldProps) {
       for (const s of batch) size += HEAD + s.segments.length * SEG;
       const packed: number[] = new Array(size);
       let o = 0;
+      // Hits: when and where, for the swish, the burst, the popup word and the pill's pop; the planner decides which get what.
+      const m = def.target.motion;
+      const kind = def.target.kind;
+      const roundPhase = useGame.getState().round?.targetPhase ?? 0;
+      const newHits: HitRec[] = [];
+      const newPops: PopRec[] = [];
+      let newShake: ShakeRec | null = null;
+      const f = fontRef.current;
       for (const s of batch) {
+        const atMs = startMs + s.eventSec * 1000;
+        const plan = planShot(planner.current, s, kind, atMs);
+        const n = s.segments.length;
+        // A missed ball shrinks away soon after it first touches the floor.
+        let fadeAt = NO_FADE;
+        if (!s.hit) {
+          for (let k = 1; k < n; k++) {
+            const g = s.segments[k]!;
+            if (g.y <= s.radius + 0.01) {
+              fadeAt = g.t0 + FADE_DELAY_SEC;
+              break;
+            }
+          }
+        }
         packed[o++] = s.endSec;
         packed[o++] = s.radius;
-        packed[o++] = s.segments.length;
+        packed[o++] = fadeAt;
+        packed[o++] = plan.fire ? 1 : 0;
+        packed[o++] = (Math.random() < 0.5 ? -1 : 1) * (5 + 6 * Math.random());
+        packed[o++] = n;
         for (const g of s.segments) {
           packed[o++] = g.t0;
           packed[o++] = g.t1;
@@ -139,18 +198,35 @@ export function PlayField({ width, height }: PlayFieldProps) {
           packed[o++] = g.vz;
           packed[o++] = g.gy;
         }
-      }
-      // Hits: when and where (the target's lateral position at the crossing) for the swish, the effects and the pill's pop.
-      const m = def.target.motion;
-      const roundPhase = useGame.getState().round?.targetPhase ?? 0;
-      const newHits: HitRec[] = [];
-      for (const s of batch) {
         if (!s.hit) continue;
         const z = m.periodSec > 0 ? m.amplitude * Math.sin((TWO_PI * s.eventSec) / m.periodSec + roundPhase) : m.amplitude * Math.sin(roundPhase);
-        newHits.push({ atMs: startMs + s.eventSec * 1000, z });
+        // The segment after the hit starts where the ball crossed the sensor.
+        const cross = s.segments[n - 1]!;
+        newHits.push({ atMs, z, bx: cross.x, by: cross.y, bz: cross.z, streak: plan.streak, clean: plan.clean, fx: plan.fx });
+        pulseMoneyAt(atMs);
+        if (plan.word) {
+          const w = f ? f.getTextWidth(plan.word) : plan.word.length * 0.62 * POP_FONT_SIZE;
+          newPops.push({ atMs, text: plan.word, w, big: plan.big, z });
+        }
+        if (plan.shake > 0 && !reduced) newShake = { atMs, amp: plan.shake };
+      }
+      if (newShake) shake.value = newShake;
+      if (newPops.length > 0) {
+        pops.modify((list) => {
+          'worklet';
+          const now = Date.now();
+          let w = 0;
+          for (let i = 0; i < list.length; i++) {
+            const p = list[i]!;
+            if (now - p.atMs < 2000) list[w++] = p;
+          }
+          list.length = w;
+          for (let i = 0; i < newPops.length; i++) list.push(newPops[i]!);
+          if (list.length > MAX_POPS) list.splice(0, list.length - MAX_POPS);
+          return list;
+        });
       }
       if (newHits.length > 0) {
-        pulseMoney(Date.now());
         hits.modify((list) => {
           'worklet';
           const now = Date.now();
@@ -179,18 +255,23 @@ export function PlayField({ width, height }: PlayFieldProps) {
         for (let i = 0; i < count; i++) {
           const end = packed[p]!;
           const r = packed[p + 1]!;
-          const n = packed[p + 2]!;
+          const fadeAt = packed[p + 2]!;
+          const fire = packed[p + 3]!;
+          const spin = packed[p + 4]!;
+          const n = packed[p + 5]!;
           const seg = packed.slice(p + HEAD, p + HEAD + n * SEG);
-          list.push({ startMs, seg, end, r });
+          list.push({ startMs, seg, end, r, fadeAt, fire, spin });
           p += HEAD + n * SEG;
         }
         if (list.length > MAX_BALLS) list.splice(0, list.length - MAX_BALLS);
         return list;
       });
     });
-  }, [balls, hits, def]);
+  }, [balls, hits, pops, shake, def, reduced]);
 
-  const ballFrame = useBallFrame({ clock, balls, cam, farDepth, nearDepth: ox + NEAR_DEPTH });
+  const kind = useMemo(() => ballColors(sportId).kind, [sportId]);
+  const ballFrame = useBallFrame({ clock, balls, cam, farDepth, nearDepth: ox + NEAR_DEPTH, kind });
+  const shakeTransform = useShakeTransform(clock, shake, width, height, reduced);
 
   const pan = useMemo(
     () =>
@@ -214,15 +295,18 @@ export function PlayField({ width, height }: PlayFieldProps) {
     <GestureDetector gesture={pan}>
       <View style={[styles.root, { width, height }]}>
         <Canvas style={{ width, height }}>
-          <WorldLayer {...scene} />
-          <BallShadows frame={ballFrame} />
-          <BallGroup frame={ballFrame} depth="far" sportId={sportId} />
-          <TargetLayer {...scene} phase={phase} hits={hits} />
-          <HitFx def={def} sportId={sportId} cam={cam} clock={clock} hits={hits} />
-          <BallGroup frame={ballFrame} depth="mid" sportId={sportId} />
-          <CharacterLayer {...scene} anchors={anchors} aim={aim} round={roundSV} schedule={scheduleSV} offsets={offsetsSV} />
-          <AimLayer def={def} cam={cam} ball={ball} aim={aim} spread={spreadSV} />
-          <BallGroup frame={ballFrame} depth="near" sportId={sportId} />
+          <Group transform={shakeTransform}>
+            <WorldLayer {...scene} />
+            <BallShadows frame={ballFrame} />
+            <BallGroup frame={ballFrame} depth="far" sportId={sportId} />
+            <TargetLayer {...scene} phase={phase} hits={hits} />
+            <HitFx def={def} sportId={sportId} cam={cam} clock={clock} hits={hits} reduced={reduced} />
+            <BallGroup frame={ballFrame} depth="mid" sportId={sportId} />
+            <CharacterLayer {...scene} anchors={anchors} aim={aim} round={roundSV} schedule={scheduleSV} offsets={offsetsSV} />
+            <AimLayer def={def} cam={cam} ball={ball} aim={aim} spread={spreadSV} clock={clock} />
+            <BallGroup frame={ballFrame} depth="near" sportId={sportId} />
+            <Popups font={font} pops={pops} clock={clock} cam={cam} def={def} width={width} reduced={reduced} />
+          </Group>
         </Canvas>
       </View>
     </GestureDetector>
