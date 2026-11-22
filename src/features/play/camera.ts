@@ -25,23 +25,41 @@ export interface Camera {
   horizonY: number;
 }
 
+/**
+ * Telephoto framing (2026-11-22, visual overhaul): the camera stands far back with a long focal length, so the far hoop is large on screen
+ * while the near character keeps about the size the owner asked for on 2026-11-19 (scale at the character ~165 pt/m on an 812 pt screen,
+ * as before; the hoop went from ~83 to ~112 pt/m). The long lens also flattens depth, which reads as a TV broadcast of an arena.
+ * On 375 x 812: hoop rim at y ~206, backboard top ~105, a 4.1 m arc apex at ~57, the character's head top ~391 and hips ~534, just above
+ * the cards tray (top at 70% of the height), and the character standing at x ~54, so the ball and the shooting arm stay left of the
+ * centered play button (which sits on the tray's top edge, features/round/RoundControls.tsx).
+ */
 /** Meters the camera stands behind the shot origin. */
-const CAM_BACK = 3.8;
-/** Meters the camera stands to the right of the character: it looks over the right shoulder. */
-const CAM_SIDE = 1.0;
-/** Camera height: a little below the character's eyes, so the hoop is clearly above and the floor clearly below. */
-const CAM_HEIGHT = 1.5;
-/** The horizon sits at this fraction of the field height from the top. */
-const HORIZON_FRACTION = 0.5;
-/** Focal length as a fraction of the field height: the character (3.8 m away) spans about 37% of the height (owner 2026-11-19: smaller). */
-const FOCAL_FRACTION = 0.8;
+const CAM_BACK = 8;
+/**
+ * How far (meters) the character stands left of the camera's line of sight: it keeps the character left of center, looking over the right
+ * shoulder. The camera's own sideways offset follows from it per sport (cameraSide), because the target distance differs: a fixed offset
+ * put the character off the left edge in football and golf (2026-11-22 screenshots).
+ */
+const CHARACTER_OFFSET = 0.65;
+/** Camera height: above the character's head, so the court floor opens up below the hoop and the hips land at the cards' top edge. */
+const CAM_HEIGHT = 2.5;
+/** The horizon sits at this fraction of the field height from the top: the hoop fills the upper half of the space above the cards. */
+const HORIZON_FRACTION = 0.33;
+/** Focal length as a fraction of the field height: 1.68 x 812 pt over 8.2 m to the character is ~165 pt per meter there. */
+const FOCAL_FRACTION = 1.68;
 /** Nothing closer than this is projected (it would blow up); points in front of it are clamped to it. */
 const MIN_DEPTH = 0.4;
+
+/** The camera's sideways offset that puts the character CHARACTER_OFFSET left of the line from the camera to the target (similar triangles). */
+export function cameraSide(dx: number): number {
+  const d = dx > 0.5 ? dx : 0.5;
+  return (CHARACTER_OFFSET * (d + CAM_BACK)) / d;
+}
 
 /** The camera looks at (targetX, 0): the target's line, so the target sits on the screen's center line and the character to the left. */
 export function makeCamera(width: number, height: number, originX: number, targetX: number): Camera {
   const x = originX - CAM_BACK;
-  const z = CAM_SIDE;
+  const z = cameraSide(targetX - originX);
   const yaw = Math.atan2(0 - z, targetX - x);
   const fx = Math.cos(yaw);
   const fz = Math.sin(yaw);

@@ -2,7 +2,8 @@
  * The one screen (docs/design-rules.md section 6, revised 2026-11-16): the play field fills the whole screen, seen from behind the
  * character. The money pill sits on top. The three upgrade cards sit over the bottom 30% between rounds and slide away while a round
  * plays; above them, between rounds, the play button and the last round's result (features/round/RoundControls.tsx). The shop is a
- * sheet, the offline panel appears on return.
+ * sheet, the offline panel appears on return. The cards sit on a navy tray that belongs to the arena (art direction "polished arcade",
+ * 2026-11-22): a gradient lit from above, rounded top corners, the ink edge and a light line under it.
  */
 import { useEffect, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -16,10 +17,10 @@ import { TopBar } from '@/features/play/TopBar';
 import { RoundControls } from '@/features/round/RoundControls';
 import { ShopSheet } from '@/features/shop/ShopSheet';
 import { useGame } from '@/store/game';
-import { colors, motion, space } from '@/ui/theme';
+import { border, colors, drop, motion, radius, vgrad } from '@/ui/theme';
 
 /** The cards take the bottom 30% of the usable height (design rules section 6), never less than the cards need. */
-const CARDS_MIN_HEIGHT = 212;
+const CARDS_MIN_HEIGHT = 236;
 const CARDS_FRACTION = 0.3;
 
 export default function Home() {
@@ -55,10 +56,11 @@ export default function Home() {
       <View style={[styles.top, { top: insets.top }]} pointerEvents="box-none">
         <TopBar />
       </View>
-      <RoundControls bottom={cardsHeight + space.md} />
       <Animated.View style={[styles.cards, { height: cardsHeight, paddingBottom: insets.bottom }, cardsStyle]} pointerEvents={playing ? 'none' : 'auto'}>
         <UpgradeCards onOpenShop={() => setShopOpen(true)} />
       </Animated.View>
+      {/* After the tray: the play button sits on the tray's top edge. */}
+      <RoundControls bottom={cardsHeight} />
       <ShopSheet visible={shopOpen} onClose={() => setShopOpen(false)} />
       <OfflinePanel />
     </View>
@@ -68,5 +70,18 @@ export default function Home() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.sky },
   top: { position: 'absolute', left: 0, right: 0, height: 56 },
-  cards: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.paper2, borderTopWidth: 3, borderTopColor: colors.ink },
+  cards: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.panel,
+    backgroundImage: vgrad(colors.panel, colors.panelDeep),
+    borderTopLeftRadius: radius.card + 4,
+    borderTopRightRadius: radius.card + 4,
+    borderWidth: border.width,
+    borderBottomWidth: 0,
+    borderColor: colors.ink,
+    boxShadow: `inset 0px 3px 0px ${colors.panelEdge}, ${drop.panel}`,
+  },
 });

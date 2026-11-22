@@ -1,15 +1,21 @@
 /**
- * The three upgrade icons as small drawn scenes (design rules section 7): flat fills, ink outlines, built from plain views so they render
- * the same everywhere. Accuracy: a ball going through the hoop with motion lines. Fire rate: three balls in a row leaving a hand.
- * Income: a coin with a face. The label next to the icon says the word; the icon shows what the upgrade does.
+ * The three upgrade icons as shaded vector drawings (art direction "polished arcade", 2026-11-22): every shape has a lit top, its base
+ * tone and the ink outline, under one warm key light from the upper left. The owner found the old scenes unreadable, so each icon is now
+ * the symbol a player already knows. Accuracy: a target with crosshair ticks. Fire rate: a lightning bolt with speed lines. Income: two
+ * stacks of the game's green coins. Drawn with Skia, one small canvas per card; decorative (the card carries the label).
  */
-import { StyleSheet, View } from 'react-native';
+import { Canvas, Circle, Group, LinearGradient, Line, Oval, Path, Rect, vec } from '@shopify/react-native-skia';
+import { View } from 'react-native';
 
 import type { UpgradeId } from '@/engine';
-import { border, colors } from '@/ui';
+import { colors, shade } from '@/ui/theme';
 
-export const ICON_WIDTH = 72;
-export const ICON_HEIGHT = 40;
+export const ICON_WIDTH = 64;
+export const ICON_HEIGHT = 50;
+
+const INK = colors.ink;
+const STROKE = 2.5;
+const SHADOW = 'rgba(20, 24, 34, 0.28)';
 
 export interface UpgradeIconProps {
   id: UpgradeId;
@@ -17,93 +23,103 @@ export interface UpgradeIconProps {
 
 export function UpgradeIcon({ id }: UpgradeIconProps) {
   return (
-    <View style={styles.box} importantForAccessibility="no" accessibilityElementsHidden>
-      {id === 'accuracy' ? <AccuracyScene /> : id === 'fireRate' ? <FireRateScene /> : <IncomeScene />}
+    <View style={{ width: ICON_WIDTH, height: ICON_HEIGHT }} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden aria-hidden>
+      <Canvas style={{ width: ICON_WIDTH, height: ICON_HEIGHT }}>
+        {id === 'accuracy' ? <Target /> : id === 'fireRate' ? <Bolt /> : <Coins />}
+      </Canvas>
     </View>
   );
 }
 
-/** Three motion lines, a ball, a rim and a net under it. */
-function AccuracyScene() {
+/** A filled circle lit from the top with an ink rim. */
+function LitCircle({ cx, cy, r, color, stroke = STROKE }: { cx: number; cy: number; r: number; color: string; stroke?: number }) {
   return (
     <>
-      <View style={[styles.line, { left: 4, top: 9, width: 12 }]} />
-      <View style={[styles.line, { left: 8, top: 15, width: 10 }]} />
-      <View style={[styles.line, { left: 12, top: 21, width: 6 }]} />
-      <View style={[styles.net, { left: 42, top: 18 }]} />
-      <View style={[styles.ball, { left: 42, top: 2, width: 16, height: 16, borderRadius: 8 }]} />
-      <View style={[styles.rim, { left: 34, top: 14 }]} />
+      <Circle cx={cx} cy={cy} r={r}>
+        <LinearGradient start={vec(cx, cy - r)} end={vec(cx, cy + r)} colors={[shade(color, 0.3), color, shade(color, -0.18)]} />
+      </Circle>
+      <Circle cx={cx} cy={cy} r={r} style="stroke" strokeWidth={stroke} color={INK} />
     </>
   );
 }
 
-/** A palm with a thumb at the left, three balls flying right. */
-function FireRateScene() {
+function Target() {
+  const cx = 32;
+  const cy = 24;
+  const red = '#E8453B';
+  const tick = (x1: number, y1: number, x2: number, y2: number) => (
+    <Line p1={vec(x1, y1)} p2={vec(x2, y2)} color={INK} strokeWidth={4} strokeCap="round" />
+  );
   return (
-    <>
-      <View style={styles.palm} />
-      <View style={styles.thumb} />
-      <View style={[styles.ball, styles.smallBall, { left: 30, top: 14 }]} />
-      <View style={[styles.ball, styles.smallBall, { left: 45, top: 12 }]} />
-      <View style={[styles.ball, styles.smallBall, { left: 60, top: 10 }]} />
-    </>
+    <Group>
+      <Oval x={cx - 18} y={44} width={36} height={6} color={SHADOW} />
+      <LitCircle cx={cx} cy={cy} r={20} color={red} stroke={3} />
+      <LitCircle cx={cx} cy={cy} r={14} color={colors.paper} />
+      <LitCircle cx={cx} cy={cy} r={8.5} color={red} />
+      <Circle cx={cx} cy={cy} r={3.2} color={colors.paper} />
+      <Circle cx={cx} cy={cy} r={3.2} style="stroke" strokeWidth={2} color={INK} />
+      {tick(cx, 0.5, cx, 9)}
+      {tick(cx, 39, cx, 47.5)}
+      {tick(8, cy, 16.5, cy)}
+      {tick(47.5, cy, 56, cy)}
+      <Oval x={cx - 13} y={cy - 16} width={9} height={5} color="rgba(255,255,255,0.6)" />
+    </Group>
   );
 }
 
-/** A coin with a rim, two eyes and a smile. */
-function IncomeScene() {
+const BOLT = 'M 38 2 L 17 28 L 29.5 28 L 23 48 L 47 19 L 34 19 L 42 2 Z';
+
+function Bolt() {
+  const yellow = '#FFD23D';
+  const line = (x1: number, x2: number, y: number) => <Line p1={vec(x1, y)} p2={vec(x2, y)} color={INK} strokeWidth={3.5} strokeCap="round" />;
   return (
-    <>
-      <View style={styles.coin}>
-        <View style={styles.coinRim} />
-        <View style={[styles.eye, { left: 10, top: 11 }]} />
-        <View style={[styles.eye, { left: 20, top: 11 }]} />
-        <View style={styles.smile} />
-      </View>
-    </>
+    <Group>
+      <Oval x={16} y={44} width={34} height={6} color={SHADOW} />
+      {line(4, 13, 14)}
+      {line(1, 12, 23)}
+      {line(5, 11, 32)}
+      <Path path={BOLT}>
+        <LinearGradient start={vec(32, 2)} end={vec(32, 48)} colors={['#FFF1A8', yellow, '#F2A516']} />
+      </Path>
+      <Path path="M 38 2 L 17 28 L 21 28 L 41 4 Z" color="rgba(255,255,255,0.55)" />
+      <Path path={BOLT} style="stroke" strokeWidth={3} strokeJoin="round" color={INK} />
+    </Group>
   );
 }
 
-const styles = StyleSheet.create({
-  box: { width: ICON_WIDTH, height: ICON_HEIGHT, position: 'relative' },
-  line: { position: 'absolute', height: border.thin, borderRadius: 1, backgroundColor: colors.ink },
-  ball: { position: 'absolute', backgroundColor: colors.paper, borderWidth: border.thin, borderColor: colors.ink },
-  smallBall: { width: 12, height: 12, borderRadius: 6 },
-  rim: { position: 'absolute', width: 32, height: 9, borderRadius: 5, backgroundColor: colors.accent, borderWidth: border.thin, borderColor: colors.ink },
-  net: {
-    position: 'absolute',
-    width: 16,
-    height: 14,
-    backgroundColor: colors.paper,
-    borderWidth: border.thin,
-    borderColor: colors.ink,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-  },
-  palm: { position: 'absolute', left: 4, top: 12, width: 18, height: 18, borderRadius: 6, backgroundColor: colors.paper, borderWidth: border.thin, borderColor: colors.ink },
-  thumb: { position: 'absolute', left: 16, top: 7, width: 9, height: 12, borderRadius: 5, backgroundColor: colors.paper, borderWidth: border.thin, borderColor: colors.ink },
-  coin: {
-    position: 'absolute',
-    left: (ICON_WIDTH - 36) / 2,
-    top: 2,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.cash,
-    borderWidth: border.thin,
-    borderColor: colors.ink,
-  },
-  coinRim: { position: 'absolute', left: 3, top: 3, width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: colors.ink },
-  eye: { position: 'absolute', width: 4, height: 4, borderRadius: 2, backgroundColor: colors.ink },
-  smile: {
-    position: 'absolute',
-    left: 10,
-    top: 16,
-    width: 12,
-    height: 7,
-    borderBottomWidth: border.thin,
-    borderBottomLeftRadius: 6,
-    borderBottomRightRadius: 6,
-    borderColor: colors.ink,
-  },
-});
+/** One coin seen from slightly above: the edge band under the face, the face lit from the top, an inner ring. */
+function Coin({ cx, cy, rx = 14, ry = 6, edge = 5 }: { cx: number; cy: number; rx?: number; ry?: number; edge?: number }) {
+  const face = colors.good;
+  const dark = shade(face, -0.42);
+  return (
+    <Group>
+      <Oval x={cx - rx} y={cy - ry + edge} width={rx * 2} height={ry * 2} color={dark} />
+      <Rect x={cx - rx} y={cy} width={rx * 2} height={edge} color={dark} />
+      <Oval x={cx - rx} y={cy - ry + edge} width={rx * 2} height={ry * 2} style="stroke" strokeWidth={STROKE} color={INK} />
+      <Rect x={cx - rx} y={cy} width={rx * 2} height={edge} color={dark} />
+      <Line p1={vec(cx - rx, cy)} p2={vec(cx - rx, cy + edge)} color={INK} strokeWidth={STROKE} />
+      <Line p1={vec(cx + rx, cy)} p2={vec(cx + rx, cy + edge)} color={INK} strokeWidth={STROKE} />
+      <Oval x={cx - rx} y={cy - ry} width={rx * 2} height={ry * 2}>
+        <LinearGradient start={vec(cx, cy - ry)} end={vec(cx, cy + ry)} colors={[shade(face, 0.4), face]} />
+      </Oval>
+      <Oval x={cx - rx} y={cy - ry} width={rx * 2} height={ry * 2} style="stroke" strokeWidth={STROKE} color={INK} />
+      <Oval x={cx - rx * 0.6} y={cy - ry * 0.55} width={rx * 1.2} height={ry * 1.1} style="stroke" strokeWidth={1.5} color={shade(face, -0.45)} />
+    </Group>
+  );
+}
+
+function Coins() {
+  return (
+    <Group>
+      <Oval x={8} y={44} width={50} height={6} color={SHADOW} />
+      <Coin cx={43} cy={39} />
+      <Coin cx={43} cy={32} />
+      <Coin cx={22} cy={40} />
+      <Coin cx={22} cy={33} />
+      <Coin cx={22} cy={26} />
+      <Coin cx={22} cy={19} />
+      <Path path="M 51 4 L 53 10 L 59 12 L 53 14 L 51 20 L 49 14 L 43 12 L 49 10 Z" color={colors.paper} />
+      <Path path="M 51 4 L 53 10 L 59 12 L 53 14 L 51 20 L 49 14 L 43 12 L 49 10 Z" style="stroke" strokeWidth={2} strokeJoin="round" color={INK} />
+    </Group>
+  );
+}

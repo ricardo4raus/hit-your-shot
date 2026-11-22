@@ -7,6 +7,8 @@ export const strings = {
     upgrade: 'Upgrade',
     max: 'Max',
     level: (level: number) => `Level ${level}`,
+    /** The level chip on a card (display lettering). */
+    levelShort: (level: number) => `Lv ${level}`,
   },
   round: {
     dragToAim: 'DRAG TO AIM',
@@ -16,6 +18,11 @@ export const strings = {
     shots: 'shots',
     best: 'Best',
     newTag: 'NEW!',
+    /** The crooked tag beside the round's money on a best round. */
+    newBest: 'NEW BEST!',
+    /** Display lettering on the play button; the accessibility labels stay `play` and `playAgain`. */
+    playButton: 'PLAY',
+    playAgainButton: 'PLAY AGAIN',
     x2: '×2 this round',
     x2Watch: 'Watch',
     x2Free: 'Free',
@@ -38,6 +45,8 @@ export const strings = {
   offline: {
     title: 'While you were away',
     away: (time: string) => `${time} away`,
+    /** Short display title over the offline money. */
+    welcome: 'Welcome back',
     double: 'Double',
     keep: 'Keep',
   },
